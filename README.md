@@ -1,6 +1,6 @@
 # Workspace · Getting Started
 
-A local productivity workspace. Three tools that run in your browser, backed by a small Node.js server on your Mac. No cloud, no accounts, your data stays on your machine.
+A local productivity workspace. Three tools that run in your browser, backed by a small Node.js server on your computer. No cloud, no accounts, your data stays on your machine. Works on macOS and Windows.
 
 ---
 
@@ -16,7 +16,7 @@ A local productivity workspace. Three tools that run in your browser, backed by 
 
 1. Put the folder in the right place.
 2. Make sure Node.js is installed.
-3. Double-click `Workspace.app`.
+3. Start the workspace.
 4. Connect Claude (via Cowork) to the workspace folder.
 
 Total time: ~3 minutes.
@@ -27,16 +27,13 @@ Total time: ~3 minutes.
 
 After unzipping, move the `workspace` folder to:
 
-```
-~/Documents/claude/workspace
-```
-
-"`~`" is a shortcut for your home folder (`/Users/yourname`). So the full path will look like `/Users/yourname/Documents/claude/workspace`.
+- **macOS:** `~/Documents/claude/workspace` (full path: `/Users/yourname/Documents/claude/workspace`)
+- **Windows:** `C:\Users\YourName\Documents\claude\workspace`
 
 If the `claude` folder doesn't exist yet, create it first:
 
-- Open **Finder** → go to **Documents** → right-click → **New Folder** → name it `claude`
-- Drag the unzipped `workspace` folder into `~/Documents/claude/`
+- **macOS:** Open **Finder** → go to **Documents** → right-click → **New Folder** → name it `claude`, then drag the unzipped `workspace` folder into it.
+- **Windows:** Open **File Explorer** → go to **Documents** → right-click → **New → Folder** → name it `claude`, then drag the unzipped `workspace` folder into it.
 
 You can put the folder anywhere you like. This location is just a recommendation to keep things tidy.
 
@@ -44,7 +41,12 @@ You can put the folder anywhere you like. This location is just a recommendation
 
 ## Step 2 · Check that Node.js is installed
 
-The server runs on Node.js. To check if you already have it, open **Terminal** (⌘+Space → type "Terminal" → press Enter) and type:
+The server runs on Node.js. To check if you already have it:
+
+- **macOS:** Open **Terminal** (⌘+Space → type "Terminal" → Enter).
+- **Windows:** Open **PowerShell** (press ⊞ Win → type "PowerShell" → Enter).
+
+Then type:
 
 ```
 node --version
@@ -52,11 +54,11 @@ node --version
 
 If you see a version number (e.g. `v20.11.0`), you're set. Skip to Step 3.
 
-If you see `command not found`, install Node from https://nodejs.org (pick the "LTS" download), then run the check again.
+If you see `command not found` (macOS) or `'node' is not recognized` (Windows), install Node from https://nodejs.org (pick the "LTS" download), then run the check again.
 
 ---
 
-## Step 3 · Start the workspace
+## Step 3 (macOS) · Start the workspace
 
 Double-click **`Workspace.app`** inside the workspace folder.
 
@@ -74,8 +76,6 @@ Here's what happens:
 - Chrome opens automatically at `http://localhost:3000`
 - You'll see a hub page with three tools
 
-The first time you open **Plan & Track**, a Welcome modal will ask for your name and role. That's used in your weekly reports.
-
 > **Note:** Keep the Terminal window open in the background. Closing it stops the server. Minimize it if it's in the way.
 
 > **If Terminal shows `Cannot find module '.../server.js'` with an `AppTranslocation` path:** macOS is running the app from a quarantined copy. Fix it once by opening Terminal and running:
@@ -86,11 +86,31 @@ The first time you open **Plan & Track**, a Welcome modal will ask for your name
 
 ---
 
+## Step 3 (Windows) · Start the workspace
+
+1. Open the `workspace` folder in **File Explorer**.
+2. Right-click an empty area inside the folder → **Open in Terminal** (or **Open PowerShell window here** on older Windows versions).
+3. In the terminal, run:
+   ```
+   node server.js
+   ```
+4. Open your browser and go to **`http://localhost:3000`**.
+
+You'll see the hub page with three tools.
+
+> **Note:** Keep the terminal window open in the background. Closing it stops the server. Minimize it if it's in the way.
+
+---
+
+After the server starts, the first time you open **Plan & Track**, a Welcome modal will ask for your name and role. That's used in your weekly reports.
+
+---
+
 ## Step 4 · Connect Claude to your workspace
 
 The browser tools are where you capture and view things. Claude is what makes them run: processing meeting transcripts, writing weekly reports, and building your catch-up list after time off.
 
-1. Open **Claude Cowork** on your Mac.
+1. Open **Claude Cowork** on your computer.
 2. Start a new chat.
 3. When it asks you to select a folder, pick the `workspace` folder you just set up.
 
@@ -128,9 +148,9 @@ Two ways, use whichever is easier:
 
 **A) From the hub page** (`http://localhost:3000`). Click the **···** (three-dot) icon in the top-right corner, then choose **Stop server**. The server shuts itself down cleanly.
 
-**B) From the Terminal window** the applet opened. Press `Ctrl+C`.
+**B) From the terminal window.** Click the terminal window and press `Ctrl+C`.
 
-To start it again, just double-click `Workspace.app` again.
+To start it again: double-click `Workspace.app` (macOS) or re-run `node server.js` in PowerShell (Windows).
 
 ---
 
@@ -147,12 +167,21 @@ The server keeps 20 rolling backups per file in `data/backups/` and a daily snap
 
 ## If something goes wrong
 
+**macOS**
 - **macOS blocks `Workspace.app` on first launch** → System Settings → Privacy & Security → Security → click **Open Anyway** next to the blocked app.
 - **Terminal shows `Cannot find module .../server.js` with an `AppTranslocation` path** → macOS quarantined the app. Run `xattr -dr com.apple.quarantine ~/Documents/claude/workspace` in Terminal, then try again.
-- **"node: command not found" in Terminal** → install Node.js from https://nodejs.org and try again.
-- **Browser shows "can't connect to localhost:3000"** → the server didn't start or was stopped. Double-click `Workspace.app` again.
-- **Tool shows old data** → hard-refresh the browser (⌘+Shift+R).
-- **Port 3000 already in use** → something else is running on the same port. Find and stop it: `lsof -i :3000`.
+- **Port 3000 already in use** → run `lsof -i :3000` to find what's using it, then stop that process.
+
+**Windows**
+- **`'node' is not recognized`** → Node.js isn't installed or isn't on PATH. Install it from https://nodejs.org, close and reopen PowerShell, and try again.
+- **PowerShell blocks scripts** → you only need to run `node server.js`, which is a binary, not a script. If you still hit an execution-policy error, run PowerShell as Administrator once and execute `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
+- **Windows Firewall prompt** → allow Node.js on Private networks so the browser can reach `localhost:3000`.
+- **Port 3000 already in use** → run `netstat -ano | findstr :3000` to find the PID, then `taskkill /PID <pid> /F` to stop it.
+
+**Both**
+- **"node: command not found"** → install Node.js from https://nodejs.org and try again.
+- **Browser shows "can't connect to localhost:3000"** → the server didn't start or was stopped. Start it again (see Step 3).
+- **Tool shows old data** → hard-refresh the browser (⌘+Shift+R on macOS, Ctrl+F5 on Windows).
 
 ---
 
@@ -168,7 +197,7 @@ workspace/
 ├── context-catchup.html   ← Context Catch-up tool
 ├── about.html             ← in-app documentation for the tools
 ├── server.js              ← the local Node.js server
-├── Workspace.app          ← double-click this to start
+├── Workspace.app          ← double-click this to start (macOS only)
 ├── data/                  ← your data (JSON + backups + daily snapshots)
 ├── files/                 ← drop zones (transcripts, calendar, weekly reports, etc.)
 └── logs/                  ← server logs
