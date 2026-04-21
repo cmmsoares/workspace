@@ -110,13 +110,17 @@ After the server starts, the first time you open **Plan & Track**, a Welcome mod
 
 The browser tools are where you capture and view things. Claude is what makes them run: processing meeting transcripts, writing weekly reports, and building your catch-up list after time off.
 
-1. Open **Claude Cowork** on your computer.
-2. Start a new chat.
-3. When it asks you to select a folder, pick the `workspace` folder you just set up.
+Create a Cowork **project** for the workspace. This way the folder is loaded automatically in every chat, so you never have to reselect it.
 
-Claude automatically reads `CLAUDE.md` at the root of the folder, so it already knows how the workspace is organized. No setup message needed.
+1. Open **Claude desktop** on your computer.
+2. Go to **Cowork → Projects → Create new project**.
+3. Name it `Workspace`.
+4. When prompted, select the `workspace` folder on your computer.
+5. Save the project.
 
-**As your first message, send:**
+Every new chat you start under this project automatically reads `CLAUDE.md` and has access to the workspace folder — no setup message needed.
+
+**Start your first chat in the project and send:**
 
 > Schedule the tasks for the workspace tools
 
@@ -128,7 +132,7 @@ Claude will check which of the three weekly automations aren't set up yet and of
 
 Accept the ones you want. You can also run any automation manually later by copying its prompt from the **Automations** card inside the Plan & Track tool or the Context Catch-up page and pasting it into Cowork.
 
-> **Tip:** Keep one Cowork chat per workspace. If the chat gets long, start a new one and select the same folder. `CLAUDE.md` is loaded automatically again.
+> **Tip:** Keep all workspace chats inside this project. If a chat gets long, start a new one in the same project — the folder and `CLAUDE.md` are still loaded automatically.
 
 ---
 
