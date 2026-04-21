@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>About this workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --surface: #FFFFFF;
+    --surface2: #F5F5F7;
+    --border: #E5E5E7;
+    --border-strong: #D2D2D7;
+    --text: #1D1D1F;
+    --muted: #86868B;
+    --faint: #C7C7CC;
+    --accent: #C99D20;
+    --accent-light: #FEF3C7;
+    --warn: #8A6A14;
+    --warn-bg: #FEF3C7;
+    --blue: #0071E3;
+    --blue-bg: #D9ECFB;
+    --code-bg: #F5F5F7;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 6px 24px -8px rgba(0,0,0,0.12);
+    --radius: 14px;
+    --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  }
+  [data-theme="dark"] {
+    --bg: #1C1C1E;
+    --surface: #2C2C2E;
+    --surface2: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.09);
+    --border-strong: rgba(255,255,255,0.18);
+    --text: #F5F5F7;
+    --muted: #98989D;
+    --faint: #6C6C70;
+    --accent: #FFD60A;
+    --accent-light: rgba(255,214,10,0.15);
+    --warn: #FFD60A;
+    --warn-bg: rgba(255,214,10,0.14);
+    --blue: #0A84FF;
+    --blue-bg: rgba(10,132,255,0.14);
+    --code-bg: rgba(255,255,255,0.06);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 6px 24px -8px rgba(0,0,0,0.5);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, 'SF Pro Text', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.2s, color 0.2s;
+  }
+  /* ── Layout shell ── */
+  .shell {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 48px;
+    padding: 48px 40px 96px;
+  }
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; gap: 24px; padding: 24px 20px 64px; }
+    nav.side { position: relative; top: auto; }
+  }
+
+  /* ── Side nav ── */
+  nav.side {
+    position: sticky; top: 32px; align-self: start;
+    padding: 0;
+  }
+  nav.side .brand {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 16px;
+  }
+  nav.side a {
+    display: block;
+    font-size: 13px; color: var(--muted);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  nav.side a:hover { color: var(--text); background: var(--surface2); }
+  nav.side a.active { color: var(--accent); font-weight: 600; border-left-color: var(--accent); background: var(--accent-light); }
+  .side-footer {
+    margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .btn-ghost {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 6px 12px; border-radius: 100px; font-size: 12px;
+    cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Sections ── */
+  main { min-width: 0; }
+  section { margin-bottom: 80px; scroll-margin-top: 24px; }
+  section:last-of-type { margin-bottom: 0; }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--accent); margin-bottom: 12px;
+  }
+  h1 {
+    font-size: clamp(36px, 4vw, 52px);
+    font-weight: 800; letter-spacing: -0.03em; line-height: 1.05;
+    margin: 0 0 20px;
+  }
+  h1 .accent {
+    background: linear-gradient(135deg, var(--accent), #60A5FA);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+  h2 {
+    font-size: 28px; font-weight: 700; letter-spacing: -0.02em;
+    margin: 0 0 8px;
+  }
+  h3 {
+    font-size: 17px; font-weight: 600; margin: 0 0 6px;
+  }
+  p { margin: 0 0 12px; color: var(--muted); }
+  p.lede { font-size: 18px; color: var(--muted); max-width: 640px; line-height: 1.6; }
+  .section-sub { color: var(--muted); margin-bottom: 28px; max-width: 640px; }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 48px 0 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 64px;
+  }
+  .hero-meta {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 100px; font-size: 12px;
+    color: var(--muted);
+  }
+  .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  /* ── Card grid ── */
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 720px) {
+    .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .card-icon {
+    width: 42px; height: 42px; border-radius: 6px;
+    background: var(--surface2); color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .card-icon svg { width: 22px; height: 22px; }
+  .card:hover .card-icon { background: var(--accent-light); color: var(--accent); }
+  .card ul { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+  .card ul li { margin-bottom: 4px; }
+  .card .card-tag {
+    position: absolute; top: 16px; right: 16px;
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--faint);
+  }
+
+  /* ── Flow diagram ── */
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+  }
+  .flow-stage {
+    display: grid; gap: 16px;
+    margin-bottom: 32px;
+  }
+  .flow-stage:last-child { margin-bottom: 0; }
+  .stage-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--accent); margin-bottom: 12px;
+  }
+  .flow-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  @media (max-width: 720px) { .flow-row { grid-template-columns: 1fr; } }
+  .flow-row.single { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
+  .flow-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    font-size: 13px;
+  }
+  .flow-item .t { font-weight: 600; color: var(--text); margin-bottom: 2px; display: block; }
+  .flow-item .d { color: var(--muted); font-size: 12px; }
+  .flow-arrow {
+    text-align: center; color: var(--accent);
+    font-size: 20px; margin: 14px 0;
+    position: relative;
+  }
+  .flow-arrow::before {
+    content: ''; position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent-light); z-index: 0;
+  }
+  .flow-arrow span { position: relative; z-index: 1; }
+
+  /* ── Automations ── */
+  .auto-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px; align-items: center;
+  }
+  .auto-card h3 { margin-bottom: 4px; }
+  .schedule-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent-light); color: var(--accent);
+    font-size: 12px; font-weight: 600;
+    padding: 6px 14px; border-radius: 100px;
+    white-space: nowrap;
+  }
+
+  /* ── Data files ── */
+  .file-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: stretch;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 720px) { .file-row { grid-template-columns: 1fr; } }
+  .file-path {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .file-path code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; font-weight: 500;
+    background: var(--code-bg); color: var(--text);
+    padding: 4px 10px; border-radius: 6px;
+    white-space: nowrap;
+  }
+  .file-desc { color: var(--muted); font-size: 13.5px; align-self: center; }
+  .file-desc strong { color: var(--text); }
+  .tier-label {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 3px 8px; border-radius: 4px; margin-right: 8px;
+  }
+  .tier-primary { background: var(--accent-light); color: var(--accent); }
+  .tier-backup { background: var(--warn-bg); color: var(--warn); }
+  .tier-input { background: var(--blue-bg); color: var(--blue); }
+
+  /* ── Rules ── */
+  .rule {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 16px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .rule:last-child { border-bottom: none; }
+  .rule-num {
+    font-size: 22px; font-weight: 800; color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .rule h3 { margin-bottom: 4px; }
+  .rule p { margin: 0; font-size: 14px; }
+
+  /* ── FAQ / callouts ── */
+  .callout {
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin: 24px 0;
+    color: var(--text);
+  }
+  .callout strong { color: var(--accent); }
+  code.inline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: var(--code-bg);
+    padding: 2px 6px; border-radius: 4px;
+  }
+
+  /* Backlink */
+  .back-home {
+    position: fixed; top: 16px; left: 16px; z-index: 10;
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    box-shadow: var(--shadow-sm);
+  }
+  .back-home:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Theme toggle */
+  .theme-toggle {
+    position: fixed; top: 16px; right: 16px;
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); z-index: 10;
+    box-shadow: var(--shadow-sm); transition: all 0.15s;
+  }
+  .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Embedded in Workspace modal, host provides its own chrome */
+  body.embed .back-home,
+  body.embed .theme-toggle { display: none !important; }
+  body.embed .shell { padding-top: 32px; }
+</style>
+</head>
+<body>
+
+<a href="/" class="back-home" title="Workspace" aria-label="Back to Workspace"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">◐</button>
+
+<div class="shell">
+
+  <nav class="side">
+    <div class="brand">About this workspace</div>
+    <a href="#overview" class="nav-link">The tools</a>
+    <a href="#flow" class="nav-link">How items move</a>
+    <a href="#automations" class="nav-link">Automations</a>
+    <a href="#data" class="nav-link">Data &amp; safety</a>
+  </nav>
+
+  <main>
+
+    <section id="overview" class="hero">
+      <h1>A small <span class="accent">productivity workspace</span>. A set of tools, one folder, one local server.</h1>
+      <p class="lede">Everything lives on your laptop. Claude reads and writes the same JSON files the web UI does. The server just keeps them in sync and quietly backs them up every time something changes.</p>
+      <div class="hero-meta">
+        <span class="chip"><span class="chip-dot"></span>localhost:3000</span>
+        <span class="chip"><span class="chip-dot"></span>One JSON per tool</span>
+        <span class="chip"><span class="chip-dot"></span>Scheduled automations</span>
+        <span class="chip"><span class="chip-dot"></span>Rolling backups + daily vault</span>
+      </div>
+
+      <h2 style="margin-top: 56px;">The tools</h2>
+      <p class="section-sub">Each one solves a specific moment in the week. They share one folder and cross-pollinate so you're never re-typing the same action twice.</p>
+
+      <div class="grid-3">
+        <div class="card">
+          <span class="card-tag">Daily driver</span>
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4.5" width="4" height="4" rx="0.7"/>
+              <path d="M4.2 6.5l0.9 0.9 1.7-1.9"/>
+              <path d="M10 6.5h11"/>
+              <rect x="3" y="11" width="4" height="4" rx="0.7"/>
+              <path d="M10 13h9"/>
+              <rect x="3" y="17.5" width="4" height="4" rx="0.7"/>
+              <path d="M10 19.5h7"/>
+            </svg>
+          </div>
+          <h3>Plan &amp; Track</h3>
+          <p style="font-size:13.5px;">The backbone. Your This-week list, Next steps, Timeline of weekly reports, meeting Sessions, and ongoing Initiatives, all in one page with subpages per area.</p>
+          <ul>
+            <li>This week · active tasks, drag to reorder</li>
+            <li>Next steps · captured actions with owner + source</li>
+            <li>Sessions · meeting notes, one block per topic</li>
+            <li>Timeline · archive of weekly reports only</li>
+            <li>Initiatives · long-running work streams</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <span class="card-tag">Review sessions</span>
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="12" rx="1"/>
+              <path d="M5 19h14"/>
+              <path d="M5 22h9"/>
+            </svg>
+          </div>
+          <h3>Show &amp; Note</h3>
+          <p style="font-size:13.5px;">Drop a prototype, demo it live, capture feedback + decisions + next steps in one pass. Next steps go back into Plan &amp; Track automatically.</p>
+          <ul>
+            <li>Renders <code class="inline">.jsx</code>, <code class="inline">.html</code> inline</li>
+            <li>Capture panel · feedback · decisions · next steps</li>
+            <li>Export any session as a shareable <code class="inline">.md</code></li>
+            <li>Past sessions list with notes searchable</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <span class="card-tag">Post-vacation</span>
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 6h8"/>
+              <path d="M3 10h6"/>
+              <path d="M3 14h8"/>
+              <path d="M3 18h5"/>
+              <path d="M14 12h7"/>
+              <path d="M18 9l3 3-3 3"/>
+            </svg>
+          </div>
+          <h3>Context Catch-up</h3>
+          <p style="font-size:13.5px;">Coming back from time away? Drop everything from the missed window into one folder, run the Cowork prompt, and get an importance-ordered triage list you can burn down.</p>
+          <ul>
+            <li>Vacation dates set the analysis window</li>
+            <li>Claude reads the folder and writes the list</li>
+            <li>Each item has a source pill back to its origin</li>
+            <li>"Add next steps" promotes items into Plan &amp; Track</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow">
+      <h2>How an item moves through the system</h2>
+      <p class="section-sub">An action item doesn't belong to one tool. It has a lifecycle. Here's the path it takes from "someone mentioned a thing" to "it's done, archived for the weekly report."</p>
+
+      <div class="flow">
+
+        <div class="flow-stage">
+          <div class="stage-label">1 · Capture · wherever it happens</div>
+          <div class="flow-row">
+            <div class="flow-item">
+              <span class="t">From a meeting</span>
+              <span class="d">Transcript lands in <code class="inline">files/transcripts/</code>. The 4:00pm automation extracts action items into Sessions + Next steps.</span>
+            </div>
+            <div class="flow-item">
+              <span class="t">From a demo</span>
+              <span class="d">You type it into a Show &amp; Note session's <em>Next steps</em> box. It's saved against that session.</span>
+            </div>
+            <div class="flow-item">
+              <span class="t">From a vacation window</span>
+              <span class="d">Claude extracts it from the catch-up folder. You click "Add next steps" on the item.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-arrow"><span>↓</span></div>
+
+        <div class="flow-stage">
+          <div class="stage-label">2 · Next steps · the holding pen</div>
+          <div class="flow-row single">
+            <div class="flow-item">
+              <span class="t">Plan &amp; Track → Next steps</span>
+              <span class="d">Every capture lands here first, tagged with its <em>source</em> (Session name, Show &amp; Note session, Catch-up: file). Nothing has to move yet.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-arrow"><span>↓</span></div>
+
+        <div class="flow-stage">
+          <div class="stage-label">3 · Promote · when you're ready to do it</div>
+          <div class="flow-row single">
+            <div class="flow-item">
+              <span class="t">This week</span>
+              <span class="d">You drag (or click) to promote a Next step into This week. Detail + source come along.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-arrow"><span>↓</span></div>
+
+        <div class="flow-stage">
+          <div class="stage-label">4 · Archive · the weekly rollover</div>
+          <div class="flow-row">
+            <div class="flow-item">
+              <span class="t">Check it off</span>
+              <span class="d">Done items stay on their own list (struck through) until the Friday rollover archives them.</span>
+            </div>
+            <div class="flow-item">
+              <span class="t">Friday 5:00pm</span>
+              <span class="d">Weekly wrap-up runs: a report is generated, saved, and This week is rolled over so Monday starts clean.</span>
+            </div>
+            <div class="flow-item">
+              <span class="t">Timeline</span>
+              <span class="d">One entry per week with the full report markdown. The Timeline only holds weekly reports, not individual items.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="automations">
+      <h2>The automations</h2>
+      <p class="section-sub">Cron jobs that run the repetitive stuff. Each one is just a prompt Claude executes against your data. You can copy the prompt from the UI and run it ad-hoc in any Cowork chat.</p>
+
+      <div class="callout" style="margin-top:0; margin-bottom:24px;">
+        <strong>Where to find the prompt · </strong>open the relevant tool page and expand the <em>Automations</em> card at the top. Each automation exposes its full Cowork prompt and setup guidance, ready to copy into a fresh chat or hand to Claude.
+      </div>
+
+      <div class="auto-card">
+        <div>
+          <h3>Process new transcripts</h3>
+          <p style="font-size:13.5px; margin: 0 0 6px;">Looks in <code class="inline">files/transcripts/</code> for <code class="inline">.vtt</code> or <code class="inline">.txt</code> files that don't yet have a matching Session, extracts topic blocks + decisions + action items, and appends them to Plan &amp; Track. Safe to re-run.</p>
+          <p style="font-size:12px; margin: 0; color: var(--faint);">Prompt lives on the <a href="/plan-and-track.html#sessions" style="color:var(--accent); text-decoration:none; font-weight:500;">Plan &amp; Track · Sessions</a> page.</p>
+        </div>
+        <div class="schedule-chip">Mon–Fri · 4:00pm</div>
+      </div>
+
+      <div class="auto-card">
+        <div>
+          <h3>Import this week's meetings</h3>
+          <p style="font-size:13.5px; margin: 0 0 6px;">Reads the latest calendar screenshot in <code class="inline">files/calendar/</code> and creates a Session per meeting for the week. Skips anything already present. Needs a fresh screenshot dropped in, manually or via an OS automation.</p>
+          <p style="font-size:12px; margin: 0; color: var(--faint);">Prompt lives on the <a href="/plan-and-track.html#sessions" style="color:var(--accent); text-decoration:none; font-weight:500;">Plan &amp; Track · Sessions</a> page.</p>
+        </div>
+        <div class="schedule-chip">Mondays · 9:00am</div>
+      </div>
+
+      <div class="auto-card">
+        <div>
+          <h3>Weekly wrap-up</h3>
+          <p style="font-size:13.5px; margin: 0 0 6px;">Generates the weekly report in canonical format, displays it, saves it to <code class="inline">files/weekly-summaries/</code> and the Timeline, then rolls done This-week items off so Monday starts empty.</p>
+          <p style="font-size:12px; margin: 0; color: var(--faint);">Prompt lives on the <a href="/plan-and-track.html#timeline" style="color:var(--accent); text-decoration:none; font-weight:500;">Plan &amp; Track · Timeline</a> page.</p>
+        </div>
+        <div class="schedule-chip">Fridays · 5:00pm</div>
+      </div>
+
+      <div class="auto-card">
+        <div>
+          <h3>Post-vacation catch-up</h3>
+          <p style="font-size:13.5px; margin: 0 0 6px;">Reads everything in <code class="inline">files/Context-catch-up/</code>, extracts what matters across your vacation window, and writes an importance-ordered list to the Catch-up tool. On-demand only, not scheduled.</p>
+          <p style="font-size:12px; margin: 0; color: var(--faint);">Prompt lives on the <a href="/context-catchup.html" style="color:var(--accent); text-decoration:none; font-weight:500;">Context Catch-up</a> page.</p>
+        </div>
+        <div class="schedule-chip">On demand</div>
+      </div>
+    </section>
+
+    <section id="data">
+      <h2>Data &amp; safety</h2>
+      <p class="section-sub">Three JSON files are the source of truth. Everything else is derived, input material, or a safety net.</p>
+
+      <div class="file-row">
+        <div class="file-path"><code>data/plan-and-track.json</code></div>
+        <div class="file-desc"><span class="tier-label tier-primary">Source of truth</span> Everything Plan &amp; Track shows: This week, Next steps, Timeline, Sessions, Initiatives, weekly reports, your name/role, theme.</div>
+      </div>
+      <div class="file-row">
+        <div class="file-path"><code>data/sessions.json</code></div>
+        <div class="file-desc"><span class="tier-label tier-primary">Source of truth</span> Show &amp; Note history: every past session with its feedback, decisions, and next steps.</div>
+      </div>
+      <div class="file-row">
+        <div class="file-path"><code>data/context-catchup.json</code></div>
+        <div class="file-desc"><span class="tier-label tier-primary">Source of truth</span> The current catch-up: vacation period + importance-ordered items.</div>
+      </div>
+
+      <div class="file-row">
+        <div class="file-path"><code>data/backups/</code></div>
+        <div class="file-desc"><span class="tier-label tier-backup">Safety net</span> Last 20 rolling saves per JSON file. Auto-written every time you save.</div>
+      </div>
+      <div class="file-row">
+        <div class="file-path"><code>data/vault/</code></div>
+        <div class="file-desc"><span class="tier-label tier-backup">Safety net</span> One permanent snapshot per file per day. Never deleted.</div>
+      </div>
+
+      <div class="file-row">
+        <div class="file-path"><code>files/transcripts/</code></div>
+        <div class="file-desc"><span class="tier-label tier-input">Input</span> Drop your <code class="inline">.vtt</code> / <code class="inline">.txt</code> meeting transcripts here.</div>
+      </div>
+      <div class="file-row">
+        <div class="file-path"><code>files/Context-catch-up/</code></div>
+        <div class="file-desc"><span class="tier-label tier-input">Input</span> Drop everything from your time-away window before running the Catch-up prompt.</div>
+      </div>
+      <div class="file-row">
+        <div class="file-path"><code>files/prototypes-and-presentations/</code></div>
+        <div class="file-desc"><span class="tier-label tier-input">Input</span> Things you want to open in Show &amp; Note: <code class="inline">.jsx</code>, <code class="inline">.html</code>, <code class="inline">.md</code>, <code class="inline">.svg</code>, images.</div>
+      </div>
+      <div class="file-row">
+        <div class="file-path"><code>files/weekly-summaries/</code></div>
+        <div class="file-desc"><span class="tier-label tier-input">Derived</span> Convenience <code class="inline">.md</code> copies of weekly reports. Canonical content is inside <code class="inline">plan-and-track.json</code>.</div>
+      </div>
+      <div class="file-row">
+        <div class="file-path"><code>files/calendar/</code></div>
+        <div class="file-desc"><span class="tier-label tier-input">Input</span> Weekly calendar screenshot for the Monday import automation.</div>
+      </div>
+
+      <div class="callout">
+        <strong>Rule of thumb · </strong>if you delete the three source-of-truth JSON files, the tools are empty. If you delete anything else, they still work. You've just lost input material or safety copies.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // Embed mode: hide chrome that the host modal already provides
+  if (new URLSearchParams(location.search).get('embed') === '1') {
+    document.body.classList.add('embed');
+  }
+
+  // Theme toggle: syncs with the same cw-theme key the tools use
+  const themeToggle = document.getElementById('themeToggle');
+  const KEY = 'cw-theme';
+  const applyTheme = (t) => {
+    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+    themeToggle.textContent = t === 'dark' ? '☾' : '◐';
+  };
+  applyTheme(localStorage.getItem(KEY) || 'light');
+  themeToggle.addEventListener('click', () => {
+    const next = (localStorage.getItem(KEY) || 'light') === 'light' ? 'dark' : 'light';
+    localStorage.setItem(KEY, next);
+    applyTheme(next);
+  });
+  window.addEventListener('storage', (e) => {
+    if (e.key === KEY) applyTheme(e.newValue || 'light');
+  });
+
+  // Active section highlight on scroll
+  const links = document.querySelectorAll('.nav-link');
+  const sections = Array.from(links).map(l => document.querySelector(l.getAttribute('href')));
+  const byId = Object.fromEntries(Array.from(links).map(l => [l.getAttribute('href').slice(1), l]));
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const el = byId[entry.target.id];
+        if (el) el.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-40% 0px -55% 0px', threshold: 0 });
+  sections.forEach(s => s && observer.observe(s));
+</script>
+
+</body>
+</html>

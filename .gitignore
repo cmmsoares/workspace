@@ -1,0 +1,28 @@
+# ── Runtime-generated data ───────────────────────────
+# Safety-net backups & daily snapshots — never ship.
+data/backups/
+data/vault/
+
+# Server logs
+logs/
+
+# ── User-generated content in drop zones ─────────────
+# Ignore everything inside these folders except the
+# .gitkeep placeholder that preserves the folder itself.
+files/transcripts/*
+files/calendar/*
+files/weekly-summaries/*
+files/context-catch-up/*
+files/prototypes-and-presentations/*
+!files/**/.gitkeep
+
+# ── OS & editor cruft ────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# ── Node ─────────────────────────────────────────────
+node_modules/
+npm-debug.log

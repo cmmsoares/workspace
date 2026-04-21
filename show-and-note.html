@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Show & Note</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js"></script>
+  <style>
+    :root {
+      --cream: #FFFFFF;
+      --cream-dark: #F5F5F7;
+      --ink: #1D1D1F;
+      --ink-soft: #3A3A3C;
+      --ink-muted: #86868B;
+      --ink-faint: #C7C7CC;
+      --accent: #C99D20;
+      --accent-light: #FEF3C7;
+      --accent-dark: #8A6A14;
+      --warm-white: #FFFFFF;
+      --feedback-color: #8A6A14;
+      --feedback-bg: #FEF3C7;
+      --decisions-color: #3634A3;
+      --decisions-bg: #E3E2F7;
+      --nextsteps-color: #0071E3;
+      --nextsteps-bg: #D9ECFB;
+      --border: #E5E5E7;
+      --border-light: #F5F5F7;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --serif: -apple-system, 'SF Pro Display', Georgia, serif;
+      --sans: -apple-system, 'SF Pro Text', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+      --status-ok: #30D158;
+      --status-down: #FF453A;
+    }
+    [data-theme="dark"] {
+      --cream: #1C1C1E;
+      --cream-dark: #2C2C2E;
+      --ink: #F5F5F7;
+      --ink-soft: #D1D1D6;
+      --ink-muted: #98989D;
+      --ink-faint: #6C6C70;
+      --accent: #FFD60A;
+      --accent-light: rgba(255,214,10,0.15);
+      --accent-dark: #FFD60A;
+      --warm-white: #2C2C2E;
+      --feedback-color: #FFD60A;
+      --feedback-bg: rgba(255,214,10,0.14);
+      --decisions-color: #5E5CE6;
+      --decisions-bg: rgba(94,92,230,0.15);
+      --nextsteps-color: #0A84FF;
+      --nextsteps-bg: rgba(10,132,255,0.15);
+      --border: rgba(255,255,255,0.09);
+      --border-light: rgba(255,255,255,0.05);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.45);
+      --status-ok: #30D158;
+      --status-down: #FF453A;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--cream);
+      color: var(--ink);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* === LOADER === */
+    #loader {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 100vh; gap: 24px; padding: 32px;
+      animation: fadeIn 0.4s ease;
+      position: relative;
+    }
+    .version-label {
+      position: absolute; bottom: 16px; right: 20px;
+      font-size: 0.65rem; color: var(--ink-faint); font-family: var(--sans);
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .brand {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .brand-badge {
+      font-family: var(--sans);
+      font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
+      color: var(--accent); background: var(--accent-light);
+      padding: 4px 12px; border-radius: 20px;
+    }
+    .brand h1 {
+      font-family: var(--sans);
+      font-size: 2rem; font-weight: 700; color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+    .brand p {
+      color: var(--ink-muted); font-size: 0.9rem; max-width: 440px;
+      text-align: center; line-height: 1.6;
+    }
+    .brand-version {
+      font-size: 0.65rem; color: var(--ink-faint); letter-spacing: 0.04em; margin-top: 2px;
+    }
+
+    .drop-zone {
+      width: 100%; max-width: 560px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius); padding: 56px 40px; text-align: center;
+      cursor: pointer; transition: all 0.2s;
+      background: var(--warm-white);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent); background: var(--accent-light);
+    }
+    .drop-zone input { display: none; }
+    .drop-zone .icon { margin-bottom: 14px; }
+    .drop-zone .icon svg { width: 40px; height: 40px; stroke: var(--ink-faint); fill: none; stroke-width: 1.5; }
+    .drop-zone:hover .icon svg { stroke: var(--accent); }
+    .drop-zone span { color: var(--ink-soft); font-size: 0.95rem; }
+    .hint { color: var(--ink-muted); font-size: 0.75rem; margin-top: 2px; }
+
+    .or-divider {
+      color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+    }
+
+    /* === FILES LIST === */
+    .files-section {
+      width: 100%; max-width: 560px;
+    }
+    .files-header {
+      font-size: 0.75rem; font-weight: 600; color: var(--ink-muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 8px; padding-left: 2px;
+    }
+    .files-grid {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .file-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; background: var(--warm-white); border-radius: var(--radius-sm);
+      border: 1px solid var(--border-light); cursor: pointer; transition: all 0.15s;
+    }
+    .file-item:hover {
+      border-color: var(--accent); background: var(--accent-light);
+    }
+    .file-item .file-ext {
+      font-size: 0.55rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 3px 7px; border-radius: 4px;
+      background: var(--cream-dark); color: var(--ink-muted); border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .file-item:hover .file-ext {
+      background: var(--accent-light); color: var(--accent); border-color: var(--accent);
+    }
+    .file-item .file-name {
+      flex: 1; font-size: 0.85rem; color: var(--ink); font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-item .file-date {
+      font-size: 0.7rem; color: var(--ink-faint); flex-shrink: 0;
+    }
+    .files-empty {
+      font-size: 0.8rem; color: var(--ink-faint); padding: 8px 2px;
+    }
+    .files-expand-btn {
+      background: none; border: none; color: var(--ink-muted); font-size: 0.75rem;
+      font-family: var(--sans); cursor: pointer; padding: 6px 2px; margin-top: 4px;
+      transition: color 0.15s;
+    }
+    .files-expand-btn:hover { color: var(--accent); }
+
+    .notes-only-btn {
+      background: var(--warm-white); border: 1px solid var(--border); color: var(--ink-soft);
+      padding: 12px 28px; border-radius: var(--radius-sm); font-size: 0.9rem;
+      font-family: var(--sans); cursor: pointer; transition: all 0.2s;
+    }
+    .notes-only-btn:hover {
+      border-color: var(--accent); color: var(--accent); background: var(--accent-light);
+    }
+
+    .error-box {
+      background: #FDF2F2; border: 1px solid #E8AAAA; border-radius: var(--radius-sm);
+      padding: 16px; max-width: 560px; width: 100%; color: #9B3B3B;
+      font-family: monospace; font-size: 0.85rem; white-space: pre-wrap;
+    }
+
+    /* === HISTORY === */
+    .history-section { width: 100%; max-width: 560px; margin-top: 4px; }
+
+    .history-list { display: flex; flex-direction: column; gap: 4px; }
+
+    .history-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: var(--warm-white); border-radius: var(--radius-sm);
+      border: 1px solid var(--border-light);
+      transition: all 0.15s; gap: 12px;
+    }
+    .history-item:hover { border-color: var(--border); box-shadow: var(--shadow-sm); }
+    .history-item-info { flex: 1; min-width: 0; }
+    .history-item-name {
+      font-size: 0.85rem; color: var(--ink); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;
+    }
+    .history-item-date { font-size: 0.7rem; color: var(--ink-muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+    .dl-badge {
+      font-size: 0.55rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--accent); background: var(--accent-light);
+      padding: 1px 5px; border-radius: 3px;
+    }
+    .history-item-preview { font-size: 0.7rem; color: var(--ink-faint); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-item-expand { cursor: pointer; }
+    .history-item-notes {
+      display: none; margin-top: 8px; padding-top: 8px;
+      border-top: 1px solid var(--border-light);
+    }
+    .history-item-notes.open { display: block; }
+    .history-item-notes-section { margin-bottom: 6px; }
+    .history-item-notes-section:last-child { margin-bottom: 0; }
+    .history-item-notes-label {
+      font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 2px; display: flex; align-items: center; gap: 5px;
+    }
+    .history-item-notes-label .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .history-item-notes-label.fb { color: var(--feedback-color); }
+    .history-item-notes-label.fb .dot { background: var(--feedback-color); }
+    .history-item-notes-label.dc { color: var(--decisions-color); }
+    .history-item-notes-label.dc .dot { background: var(--decisions-color); }
+    .history-item-notes-label.ns { color: var(--nextsteps-color); }
+    .history-item-notes-label.ns .dot { background: var(--nextsteps-color); }
+    .history-item-notes-text {
+      font-size: 0.7rem; color: var(--ink-soft); line-height: 1.5;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .history-item-expand-hint {
+      font-size: 0.75rem; font-weight: 500; color: var(--accent); margin-top: 6px; cursor: pointer;
+      transition: color 0.15s; display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 4px; background: var(--accent-light);
+    }
+    .history-item-expand-hint:hover { background: var(--accent); color: #fff; }
+    .history-item-actions { display: flex; gap: 3px; flex-shrink: 0; }
+    .history-item-actions button {
+      background: none; border: none; color: var(--ink-faint); cursor: pointer;
+      padding: 4px 6px; border-radius: 4px; font-size: 0.75rem; transition: all 0.15s;
+    }
+    .history-item-actions .copy-s:hover { background: var(--cream-dark); color: var(--ink-soft); }
+    .history-item-actions .dl-s:hover { background: var(--accent-light); color: var(--accent); }
+    .history-item-actions .del-s:hover { background: #FDF2F2; color: #C06060; }
+    .history-empty { color: var(--ink-faint); font-size: 0.8rem; padding: 8px 0; }
+
+    .export-all-btn {
+      width: 100%; margin-top: 6px; padding: 10px 0;
+      background: var(--warm-white); border: 1px solid var(--border); color: var(--ink-muted);
+      border-radius: var(--radius-sm); font-size: 0.8rem; font-family: var(--sans);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .export-all-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Data menu (Export / Restore / Clear): floating top-right on loader */
+    .sn-data-menu {
+      position: absolute; top: calc(100% + 6px); right: 0; z-index: 10002;
+      min-width: 200px; background: var(--warm-white);
+      border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      padding: 4px; display: flex; flex-direction: column;
+    }
+    .sn-data-menu[hidden] { display: none; }
+    .sn-data-menu button {
+      text-align: left; padding: 8px 12px; font-size: 0.78rem; font-family: var(--sans);
+      background: transparent; border: none; color: var(--ink); cursor: pointer;
+      border-radius: 6px; transition: all 0.1s;
+    }
+    .sn-data-menu button:hover { background: var(--accent-light); color: var(--accent); }
+    .sn-data-menu button.danger { color: #D70015; }
+    .sn-data-menu button.danger:hover { background: rgba(215,0,21,0.08); color: #D70015; }
+    .sn-data-menu .sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* === APP === */
+    #app { min-height: 100vh; transition: margin-right 0.25s ease; }
+    #app.notes-open { margin-right: 380px; }
+
+    /* Markdown rendered content */
+    #app .md-content {
+      max-width: 780px; margin: 0 auto; padding: 48px 32px;
+      font-family: var(--sans); font-size: 1rem; line-height: 1.8; color: var(--ink);
+    }
+    #app .md-content h1 { font-family: var(--serif); font-size: 2rem; font-weight: 700; margin: 1.5em 0 0.5em; color: var(--ink); }
+    #app .md-content h2 { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; margin: 1.3em 0 0.4em; color: var(--ink); }
+    #app .md-content h3 { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; margin: 1.2em 0 0.3em; }
+    #app .md-content p { margin: 0.8em 0; }
+    #app .md-content ul, #app .md-content ol { margin: 0.8em 0; padding-left: 1.5em; }
+    #app .md-content li { margin: 0.3em 0; }
+    #app .md-content code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    #app .md-content pre { background: #1D1D1F; color: #F5F5F7; padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 1em 0; font-family: var(--mono); }
+    #app .md-content pre code { background: none; padding: 0; color: inherit; }
+    #app .md-content blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--ink-muted); margin: 1em 0; }
+    #app .md-content table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+    #app .md-content th, #app .md-content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+    #app .md-content th { background: var(--cream); font-weight: 600; }
+    #app .md-content a { color: var(--accent); }
+    #app .md-content hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+
+    /* SVG / Mermaid centered */
+    #app .svg-content, #app .mermaid-content {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 32px;
+    }
+    #app .svg-content svg { max-width: 100%; max-height: 90vh; }
+    #app .mermaid-content svg { max-width: 100%; }
+
+    /* Image */
+    #app .img-content {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 32px; background: var(--cream);
+    }
+    #app .img-content img {
+      max-width: 100%; max-height: 90vh; object-fit: contain;
+      border-radius: var(--radius); box-shadow: var(--shadow-lg);
+    }
+
+    /* === TOOLBAR === */
+    .toolbar {
+      position: fixed; top: 16px; left: 16px; z-index: 9999;
+      display: flex; gap: 8px; align-items: center;
+    }
+    .toolbar .workspace-link {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--warm-white); border: 1px solid var(--border);
+      color: var(--ink-muted); text-decoration: none;
+      transition: all 0.15s, opacity 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      opacity: 0.5;
+    }
+    .toolbar .workspace-link:hover { color: var(--accent); border-color: var(--accent); opacity: 1; }
+
+    /* Right-side cluster in presenter: theme toggle + pencil */
+    .presenter-right {
+      position: fixed; top: 16px; right: 16px; z-index: 10000;
+      display: flex; gap: 8px; align-items: center;
+    }
+    .presenter-right button, .presenter-right .notes-toggle {
+      background: var(--warm-white); border: 1px solid var(--border);
+      color: var(--ink-muted);
+      width: 36px; height: 36px; border-radius: var(--radius-sm);
+      font-size: 1rem; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; transition: all 0.15s, opacity 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      position: static;
+      opacity: 0.5;
+    }
+    .presenter-right button:hover, .presenter-right .notes-toggle:hover {
+      border-color: var(--accent); color: var(--accent); opacity: 1;
+    }
+    .presenter-right .notes-toggle.active { color: var(--accent); border-color: var(--accent); background: var(--accent-light); opacity: 1; }
+    .presenter-right .notes-toggle.active:hover { background: var(--accent-light); }
+
+    /* When notes panel is open, the right-side cluster goes fully visible (it's inside the notes area now). Only the back button (.toolbar) stays faded. */
+    #app.notes-open ~ .presenter-right button,
+    #app.notes-open ~ .presenter-right .notes-toggle { opacity: 1; }
+
+    /* Legacy standalone notes-toggle position (kept for safety; presenter uses .presenter-right now) */
+    .notes-toggle { border-radius: var(--radius-sm); }
+
+    /* === NOTES PANEL === */
+    .notes-panel {
+      position: fixed; top: 0; right: -380px; width: 380px; height: 100vh;
+      background: var(--warm-white); border-left: 1px solid var(--border);
+      z-index: 9998; transition: right 0.25s ease;
+      display: flex; flex-direction: column;
+    }
+    .notes-panel.open { right: 0; }
+
+    /* === POPUP MODE (notes-only floating window) === */
+    body.popup-mode { background: var(--warm-white) !important; }
+    body.popup-mode .toolbar,
+    body.popup-mode .notes-toggle,
+    body.popup-mode .presenter-right,
+    body.popup-mode .sn-theme-toggle,
+    body.popup-mode .sn-workspace-link,
+    body.popup-mode #loader,
+    body.popup-mode #app { display: none !important; }
+    body.popup-mode .notes-panel {
+      width: 100vw; right: 0; border-left: none;
+      transition: none;
+    }
+
+    /* Kebab menu: replaces the footer CTAs in all notes views */
+    .notes-footer { display: none !important; }
+    .notes-menu-btn {
+      background: transparent; border: none; color: var(--ink-soft);
+      font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 2px 6px;
+      border-radius: 6px; transition: background 0.15s, color 0.15s;
+      display: inline-flex; align-items: center;
+    }
+    .notes-menu-btn:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+
+    /* Pencil now lives in the top-left toolbar, so no right offset needed. */
+    .notes-header-actions { margin-right: 0; }
+    body.popup-mode .notes-header-actions { margin-right: 0; }
+
+    .notes-menu {
+      position: absolute; top: 44px; right: 60px; z-index: 10001;
+      background: var(--warm-white); border: 1px solid var(--border);
+      border-radius: 8px; padding: 4px; min-width: 140px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      display: flex; flex-direction: column;
+    }
+    body.popup-mode .notes-menu { right: 14px; }
+    .notes-menu[hidden] { display: none; }
+    .notes-menu button {
+      background: transparent; border: none; color: var(--ink);
+      font-family: var(--sans); font-size: 0.8rem; text-align: left;
+      padding: 8px 12px; border-radius: 5px; cursor: pointer;
+      transition: background 0.1s;
+    }
+    .notes-menu button:hover { background: var(--accent-light); color: var(--accent); }
+
+    /* Open sections split the available panel height; collapsed sections stay header-only.
+       Applies to both the in-page side panel and the popup. */
+    .notes-body { overflow: hidden; display: flex; flex-direction: column; }
+    .note-section {
+      display: flex; flex-direction: column; min-height: 0;
+      flex: 1 1 0;
+    }
+    .note-section:has(.note-section-body.collapsed) {
+      flex: 0 0 auto;
+    }
+    .note-section-body:not(.collapsed) {
+      flex: 1 1 auto; max-height: none; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    .note-section textarea {
+      flex: 1 1 auto; min-height: 0; height: 100%;
+    }
+
+    .notes-panel-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border-light);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .notes-panel-header h2 {
+      font-family: var(--serif); font-size: 1rem; font-weight: 600; color: var(--ink);
+    }
+    .save-indicator { font-size: 0.7rem; color: var(--ink-faint); transition: color 0.3s; }
+    .save-indicator.just-saved { color: var(--accent); }
+
+    .notes-body { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+
+    .note-section { border-bottom: 1px solid var(--border-light); }
+    .note-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px; cursor: pointer; user-select: none; transition: background 0.1s;
+    }
+    .note-section-header:hover { background: rgba(0,0,0,0.015); }
+    .note-section-header .label {
+      font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .note-section-header .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .note-section-header .chev { font-size: 0.55rem; color: var(--ink-faint); transition: transform 0.2s; }
+    .note-section-header .chev.collapsed { transform: rotate(-90deg); }
+
+    .note-section.feedback .label { color: var(--feedback-color); }
+    .note-section.feedback .dot { background: var(--feedback-color); }
+
+    .note-section.decisions .label { color: var(--decisions-color); }
+    .note-section.decisions .dot { background: var(--decisions-color); }
+
+    .note-section.nextsteps .label { color: var(--nextsteps-color); }
+    .note-section.nextsteps .dot { background: var(--nextsteps-color); }
+
+    .note-section-body {
+      overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease;
+      max-height: 600px; opacity: 1;
+    }
+    .note-section-body.collapsed { max-height: 0; opacity: 0; padding: 0; }
+
+    .note-section textarea {
+      width: 100%; min-height: 100px; background: transparent; border: none; color: var(--ink);
+      font-family: var(--sans);
+      font-size: 0.85rem; line-height: 1.7; padding: 4px 20px 14px; resize: none; outline: none;
+    }
+    .note-section textarea::placeholder { color: var(--ink-faint); }
+
+    .notes-footer {
+      padding: 12px 20px; border-top: 1px solid var(--border-light);
+      display: flex; gap: 8px; flex-shrink: 0;
+    }
+    .notes-footer button {
+      background: transparent; border: 1px solid var(--border); color: var(--ink-muted);
+      padding: 6px 14px; border-radius: 6px; font-size: 0.75rem; cursor: pointer;
+      transition: all 0.15s; font-family: var(--sans);
+    }
+    .notes-footer button:hover { border-color: var(--accent); color: var(--accent); }
+    .notes-footer .copied { border-color: var(--accent) !important; color: var(--accent) !important; }
+
+    /* Session type prompt styles */
+    .session-prompt {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; color: var(--ink-muted); font-size: 1rem;
+    }
+    .session-prompt-inner { text-align: center; }
+    .session-prompt-icon { font-size: 2rem; margin-bottom: 10px; opacity: 0.5; }
+    .sn-theme-toggle {
+      position: fixed; top: 16px; right: 16px; background: var(--warm-white);
+      border: 1px solid var(--border); color: var(--ink-muted); width: 36px; height: 36px;
+      border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center;
+      justify-content: center; transition: all 0.15s; z-index: 10001;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .sn-theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* In presenter mode: theme toggle sits inside the right cluster (next to pencil) */
+    .presenter-right .sn-theme-toggle.presenter {
+      position: static; top: auto; right: auto; left: auto;
+    }
+
+  </style>
+</head>
+<body>
+  <script>
+    window.__saveStatus = (function(){
+      let t;
+      const el = () => document.getElementById('saveStatus');
+      const txt = () => document.getElementById('saveStatusText');
+      return {
+        saving(){ clearTimeout(t); if(!el())return; el().classList.add('is-saving'); txt().textContent='syncing…'; },
+        saved(){ clearTimeout(t); if(!el())return; el().classList.remove('is-saving'); txt().textContent='saved'; t=setTimeout(()=>{ if(txt())txt().textContent='auto-saved'; },1500); },
+        failed(){ clearTimeout(t); if(!el())return; el().classList.remove('is-saving'); txt().textContent='sync failed'; t=setTimeout(()=>{ if(txt())txt().textContent='auto-saved'; },2500); }
+      };
+    })();
+    (function(){
+      const origFetch = window.fetch.bind(window);
+      const SAVE_PATHS = ['/data/sessions','/data/plan-and-track'];
+      window.fetch = async function(input, init){
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        const method = (init && init.method) || (typeof input === 'object' && input.method) || 'GET';
+        const isSave = method.toUpperCase() === 'POST' && SAVE_PATHS.some(p => url.includes(p));
+        if (isSave) window.__saveStatus.saving();
+        try {
+          const res = await origFetch(input, init);
+          if (isSave) { res.ok ? window.__saveStatus.saved() : window.__saveStatus.failed(); }
+          return res;
+        } catch(e) { if (isSave) window.__saveStatus.failed(); throw e; }
+      };
+    })();
+  </script>
+
+  <!-- LOADER -->
+  <div id="loader">
+    <a href="/" class="sn-workspace-link" title="Workspace" aria-label="Back to Workspace" style="position:fixed;top:16px;left:16px;z-index:10001;width:36px;height:36px;border-radius:8px;background:var(--warm-white);border:1px solid var(--border);color:var(--ink-muted);display:flex;align-items:center;justify-content:center;text-decoration:none;transition:all 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.06);" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--ink-muted)';this.style.borderColor='var(--border)'">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <button class="sn-theme-toggle" id="loaderThemeToggle" title="Toggle theme"></button>
+    <div class="sn-data-menu-wrap" id="snDataMenuWrap" style="position:fixed;top:16px;right:60px;z-index:10001;">
+      <button class="sn-data-menu-btn" id="snDataMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Data"
+        style="background:var(--warm-white);border:1px solid var(--border);color:var(--ink-muted);width:36px;height:36px;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.06);padding:0;gap:0;"
+        onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--ink-muted)';this.style.borderColor='var(--border)'">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v7M4.5 6.5L7 9l2.5-2.5M2.5 11.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <input type="file" id="snRestoreInput" accept=".json" style="display:none;" />
+      <div class="sn-data-menu" id="snDataMenu" role="menu" hidden>
+        <button type="button" id="snExportJson" role="menuitem">Export data (.json)</button>
+        <button type="button" id="snExportMd" role="menuitem">Export all as .md</button>
+        <button type="button" id="snRestoreBtn" role="menuitem">Restore from backup</button>
+        <div class="sep"></div>
+        <button type="button" id="snClearBtn" role="menuitem" class="danger">Clear all data</button>
+      </div>
+    </div>
+    <div class="brand">
+      <span class="brand-badge">Experience Group</span>
+      <h1>Show & Note</h1>
+      <p>Capture feedback. Ship next steps.</p>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="13" x2="15" y2="13" stroke-linecap="round"/><line x1="9" y1="17" x2="13" y2="17" stroke-linecap="round"/></svg></div>
+      <span>Drop a file to present (.jsx, .html)</span>
+      <span class="hint">or click to browse</span>
+      <input type="file" id="fileInput" accept=".jsx,.js,.tsx,.html,.htm,.md,.markdown,.svg,.mermaid,.mmd,.png,.jpg,.jpeg,.gif,.webp" />
+    </div>
+
+    <div id="errorBox"></div>
+
+    <div class="files-section" id="filesSection">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="files-header" style="margin-bottom:0;">Prototypes & presentations</div>
+        <button class="notes-only-btn" id="notesOnlyBtn" style="padding:5px 14px;font-size:0.75rem;border-radius:100px;">Start notes-only session</button>
+      </div>
+      <div class="files-grid" id="filesGrid"></div>
+      <div class="files-empty" id="filesEmpty" style="display:none;text-align:center;padding:28px 20px;background:var(--warm-white);border:1px solid var(--border-light);border-radius:var(--radius);">
+        <div style="font-size:0.85rem;color:var(--ink-faint);">Empty folder</div>
+        <div style="font-size:0.7rem;color:var(--ink-faint);margin-top:4px;opacity:0.7;">Drop files in <code style="font-size:0.65rem;">files/prototypes-and-presentations/</code></div>
+      </div>
+      <button class="files-expand-btn" id="filesExpandBtn" style="display:none;"></button>
+    </div>
+
+    <div class="history-section">
+      <div style="margin-bottom:8px;">
+        <div class="files-header" style="margin-bottom:0;">Past sessions</div>
+      </div>
+      <div class="history-list" id="historyList"></div>
+      <button class="files-expand-btn" id="historyExpandBtn" style="display:none;"></button>
+    </div>
+
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none;"></div>
+
+  <!-- NOTES PANEL -->
+  <div class="notes-panel" id="notesPanel">
+    <div class="notes-panel-header" style="flex-direction:column;align-items:stretch;gap:6px;position:relative;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h2>Notes</h2>
+        <div class="notes-header-actions" style="display:flex;align-items:center;gap:8px;">
+          <span class="save-indicator" id="saveIndicator">auto-saved</span>
+          <button id="notesMenuBtn" class="notes-menu-btn" type="button" aria-label="More actions" title="More actions">&#8943;</button>
+        </div>
+      </div>
+      <div id="notesMenu" class="notes-menu" role="menu" hidden>
+        <button type="button" id="notesMenuCopy" role="menuitem">Copy All</button>
+        <button type="button" id="notesMenuExport" role="menuitem">Export .md</button>
+        <button type="button" id="notesMenuTheme" role="menuitem">Toggle theme</button>
+        <button type="button" id="notesMenuClear" role="menuitem">Clear</button>
+      </div>
+      <input id="sessionTitleInput" type="text" placeholder="Session title..." style="
+        font-family: var(--sans); font-size: 0.85rem; font-weight: 500; color: var(--ink);
+        background: transparent; border: 1px solid var(--border-light); border-radius: 6px;
+        padding: 5px 10px; outline: none; width: 100%; transition: border-color 0.15s;
+        margin-top: 8px;
+      " onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-light)'" />
+      <div id="attachedRow" style="display:none;align-items:center;justify-content:space-between;gap:8px;font-size:0.68rem;color:var(--muted);padding:0 2px;">
+        <span id="attachedLabel" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;">Attached to ·</span>
+        <button id="splitBtn" type="button" style="display:none;font-family:var(--sans);font-size:0.68rem;font-weight:500;color:var(--accent);background:transparent;border:1px solid var(--accent);border-radius:100px;padding:2px 10px;cursor:pointer;flex-shrink:0;" title="Detach notes into a new session">Split session</button>
+      </div>
+    </div>
+    <div class="notes-body">
+      <div class="note-section feedback">
+        <div class="note-section-header" data-target="feedbackBody">
+          <span class="label"><span class="dot"></span> Feedback</span>
+          <span class="chev" id="fbChev">&#9660;</span>
+        </div>
+        <div class="note-section-body" id="feedbackBody">
+          <textarea id="feedbackInput" placeholder="Capture reactions, concerns, praise, questions..."></textarea>
+        </div>
+      </div>
+      <div class="note-section decisions">
+        <div class="note-section-header" data-target="decisionsBody">
+          <span class="label"><span class="dot"></span> Decisions</span>
+          <span class="chev" id="decChev">&#9660;</span>
+        </div>
+        <div class="note-section-body" id="decisionsBody">
+          <textarea id="decisionsInput" placeholder="What was agreed? What's locked in?"></textarea>
+        </div>
+      </div>
+      <div class="note-section nextsteps">
+        <div class="note-section-header" data-target="nextStepsBody">
+          <span class="label"><span class="dot"></span> Next Steps</span>
+          <span class="chev" id="nsChev">&#9660;</span>
+        </div>
+        <div class="note-section-body" id="nextStepsBody">
+          <textarea id="nextStepsInput" placeholder="Action items, owners, deadlines..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="notes-footer">
+      <button id="copyNotesBtn">Copy All</button>
+      <button id="exportSessionBtn">Export .md</button>
+      <button id="clearNotesBtn">Clear</button>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const dropZone = $('dropZone'), fileInput = $('fileInput'), errorBox = $('errorBox');
+    const loader = $('loader'), appDiv = $('app'), notesPanel = $('notesPanel');
+    const feedbackInput = $('feedbackInput'), decisionsInput = $('decisionsInput'), nextStepsInput = $('nextStepsInput');
+    const saveIndicator = $('saveIndicator');
+    const copyNotesBtn = $('copyNotesBtn'), exportSessionBtn = $('exportSessionBtn'), clearNotesBtn = $('clearNotesBtn');
+    const snDataMenuWrap = $('snDataMenuWrap');
+    const snDataMenuBtn = $('snDataMenuBtn');
+    const snDataMenu = $('snDataMenu');
+    const snRestoreInput = $('snRestoreInput');
+    const historyList = $('historyList');
+    const notesOnlyBtn = $('notesOnlyBtn');
+
+    let notesToggleBtn = null, toolbarEl = null, currentSessionKey = '', currentFileType = '';
+
+    // === Session type suggestions ===
+    const SESSION_TYPES = ['Show & Tell', 'Design Review', 'Crit Session', 'Walkthrough', 'Sync'];
+
+    function suggestSessionName() {
+      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const type = SESSION_TYPES[0];
+      return `${today} · ${type}`;
+    }
+
+    // Returns a unique "<date> · Show & Note" name, appending (2), (3)... if taken
+    function suggestNotesOnlyName() {
+      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const base = `${today} · Show & Note`;
+      const existing = new Set(getSessions().map(s => s.fileName));
+      if (!existing.has(base)) return base;
+      let i = 2;
+      while (existing.has(`${base} (${i})`)) i++;
+      return `${base} (${i})`;
+    }
+
+    // === File type detection ===
+    function detectType(fileName) {
+      const ext = fileName.split('.').pop().toLowerCase();
+      const map = {
+        jsx: 'jsx', js: 'jsx', tsx: 'jsx',
+        html: 'html', htm: 'html',
+        md: 'markdown', markdown: 'markdown',
+        svg: 'svg',
+        mermaid: 'mermaid', mmd: 'mermaid',
+        png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image'
+      };
+      return map[ext] || 'unknown';
+    }
+
+    // === Sessions (server = source of truth; localStorage is in-session cache) ===
+    // Server JSON is authoritative. localStorage is hydrated from the server on
+    // page load and kept in sync on every write so synchronous callers stay fast.
+    function getSessions() { try { return JSON.parse(localStorage.getItem('sn-sessions') || '[]'); } catch { return []; } }
+    function setSessions(s) {
+      localStorage.setItem('sn-sessions', JSON.stringify(s));
+      // Fire-and-forget push to server so /data/sessions.json is always current.
+      try {
+        fetch('/data/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) }).catch(() => {});
+      } catch {}
+    }
+
+    let _wsSessionId = null; // tracks the WS session id for this S&N session
+    let _wsBlockId = null;   // tracks the block id inside the attached WS session
+
+    // Return a meeting-type WS session whose time window contains "now" (with 10 min grace
+    // before startTime and after endTime; endTime defaults to startTime+30min when missing).
+    async function findActiveMeetingSession() {
+      try {
+        const res = await fetch('/data/plan-and-track');
+        const wsData = await res.json();
+        if (!wsData || !Array.isArray(wsData.sessions)) return null;
+        const now = new Date();
+        const todayStr = now.toISOString().slice(0, 10);
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        return wsData.sessions.find(s => {
+          if (s.type && s.type !== 'meeting') return false;
+          if (s.date !== todayStr) return false;
+          if (!s.startTime) return false;
+          const [sh, sm] = s.startTime.split(':').map(Number);
+          const startMin = sh * 60 + sm;
+          let endMin;
+          if (s.endTime) {
+            const [eh, em] = s.endTime.split(':').map(Number);
+            endMin = eh * 60 + em;
+          } else {
+            endMin = startMin + 30;
+          }
+          return nowMin >= (startMin - 10) && nowMin <= (endMin + 10);
+        }) || null;
+      } catch (e) { return null; }
+    }
+
+    async function appendNoteBlockToWS(sessionId, fileName) {
+      try {
+        const res = await fetch('/data/plan-and-track');
+        let wsData = await res.json();
+        if (!wsData) return null;
+        const session = (wsData.sessions || []).find(s => s.id === sessionId);
+        if (!session) return null;
+        const block = {
+          id: Math.random().toString(36).slice(2, 8),
+          title: fileName || 'Notes',
+          time: '—',
+          covered: false,
+          notes: ''
+        };
+        session.blocks = [...(session.blocks || []), block];
+        await fetch('/data/plan-and-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wsData)
+        });
+        return block.id;
+      } catch (e) { console.warn('appendNoteBlockToWS failed', e); return null; }
+    }
+
+    async function openSession(fileName, fileType) {
+      const sessions = getSessions();
+      const recent = sessions.find(s => s.fileName === fileName && (Date.now() - s.updatedAt) < 300000);
+      if (recent) {
+        currentSessionKey = recent.key;
+        _wsSessionId = recent._wsSessionId || null;
+        _wsBlockId = recent._wsBlockId || null;
+        await refreshAttachedInfo();
+        return;
+      }
+      currentSessionKey = fileName + '__' + Date.now();
+      _wsSessionId = null;
+      _wsBlockId = null;
+      currentSessionMeta = { key: currentSessionKey, fileName, fileType: fileType || 'notes', createdAt: Date.now(), updatedAt: Date.now(), feedback: '', decisions: '', nextSteps: '', _wsSessionId: null, _wsBlockId: null };
+
+      // Auto-attach: if a meeting is happening right now, hook into it instead of creating a new WS session
+      const active = await findActiveMeetingSession();
+      if (active) {
+        _wsSessionId = active.id;
+        _wsBlockId = await appendNoteBlockToWS(active.id, fileName);
+        if (currentSessionMeta) { currentSessionMeta._wsSessionId = _wsSessionId; currentSessionMeta._wsBlockId = _wsBlockId; }
+      } else {
+        await createWSSession(fileName, fileType);
+      }
+      await refreshAttachedInfo();
+    }
+
+    let currentSessionMeta = null;
+
+    async function createWSSession(label, fileType) {
+      try {
+        const res = await fetch('/data/plan-and-track');
+        let wsData = await res.json();
+        if (!wsData) return;
+
+        const sessionId = Math.random().toString(36).slice(2, 8);
+        const blockId = Math.random().toString(36).slice(2, 8);
+        const nowDate = new Date();
+        const todayStr = nowDate.toISOString().slice(0, 10);
+
+        const wsSession = {
+          id: sessionId,
+          date: todayStr,
+          startTime: nowDate.toTimeString().slice(0, 5),
+          label: label,
+          type: 'show-note',
+          blocks: [{
+            id: blockId,
+            title: 'Show & Note',
+            time: '—',
+            covered: false,
+            notes: ''
+          }],
+          file: null,
+          createdAt: nowDate.toISOString()
+        };
+
+        wsData.sessions = [...(wsData.sessions || []), wsSession];
+        await fetch('/data/plan-and-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wsData)
+        });
+
+        _wsSessionId = sessionId;
+        _wsBlockId = blockId;
+        // Store the WS session ID in the S&N session meta
+        if (currentSessionMeta) { currentSessionMeta._wsSessionId = sessionId; currentSessionMeta._wsBlockId = blockId; }
+        // Also update in localStorage if already saved
+        const sessions = getSessions();
+        const s = sessions.find(s => s.key === currentSessionKey);
+        if (s) { s._wsSessionId = sessionId; s._wsBlockId = blockId; setSessions(sessions); }
+      } catch(e) {
+        console.warn('Failed to create WS session:', e);
+      }
+    }
+
+    async function syncNotesToWS() {
+      if (!_wsSessionId) return;
+      const fb = feedbackInput.value, dc = decisionsInput.value;
+      // Build merged notes from feedback + decisions (next steps sync separately)
+      const parts = [];
+      if (fb.trim()) parts.push('**Feedback**\n' + fb.trim());
+      if (dc.trim()) parts.push('**Decisions**\n' + dc.trim());
+      const mergedNotes = parts.join('\n\n');
+
+      try {
+        const res = await fetch('/data/plan-and-track');
+        let wsData = await res.json();
+        if (!wsData) return;
+
+        const session = (wsData.sessions || []).find(s => s.id === _wsSessionId);
+        if (!session) return;
+
+        // Find the tracked block by id first; fall back to title match; else create a new one
+        let block = (_wsBlockId && session.blocks.find(b => b.id === _wsBlockId))
+                 || session.blocks.find(b => b.title === 'Show & Note');
+        if (!block) {
+          const fileName = currentSessionMeta?.fileName || 'Notes';
+          block = { id: Math.random().toString(36).slice(2, 8), title: fileName, time: '—', covered: false, notes: '' };
+          session.blocks.push(block);
+          _wsBlockId = block.id;
+          if (currentSessionMeta) currentSessionMeta._wsBlockId = block.id;
+        }
+        block.notes = mergedNotes;
+        block.covered = mergedNotes.trim().length > 0;
+
+        await fetch('/data/plan-and-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wsData)
+        });
+      } catch(e) {
+        console.warn('Failed to sync notes to WS:', e);
+      }
+    }
+
+    function saveNotes() {
+      if (!currentSessionKey) return;
+      const fb = feedbackInput.value, dc = decisionsInput.value, ns = nextStepsInput.value;
+      const hasContent = fb.trim() || dc.trim() || ns.trim();
+      const sessions = getSessions();
+      let s = sessions.find(s => s.key === currentSessionKey);
+      if (!s && hasContent && currentSessionMeta) {
+        sessions.unshift(currentSessionMeta);
+        if (sessions.length > 50) sessions.length = 50;
+        s = sessions[0];
+      }
+      if (!s) return;
+      if (!hasContent) {
+        const idx = sessions.indexOf(s);
+        if (idx !== -1) { sessions.splice(idx, 1); setSessions(sessions); }
+        return;
+      }
+      s.feedback = fb;
+      s.decisions = dc;
+      s.nextSteps = ns;
+      s.updatedAt = Date.now();
+      if (_wsSessionId) s._wsSessionId = _wsSessionId;
+      if (_wsBlockId) s._wsBlockId = _wsBlockId;
+      setSessions(sessions);
+      saveIndicator.textContent = 'saved';
+      saveIndicator.classList.add('just-saved');
+      setTimeout(() => { saveIndicator.textContent = 'auto-saved'; saveIndicator.classList.remove('just-saved'); }, 1200);
+    }
+
+    const sessionTitleInput = document.getElementById('sessionTitleInput');
+
+    function loadNotes() {
+      const s = getSessions().find(s => s.key === currentSessionKey);
+      feedbackInput.value = s?.feedback || '';
+      decisionsInput.value = s?.decisions || '';
+      nextStepsInput.value = s?.nextSteps || '';
+      // Set session title
+      sessionTitleInput.value = s?.fileName || currentSessionMeta?.fileName || currentSessionKey.split('__')[0] || '';
+      // Initialize sync tracking so we don't re-push existing lines
+      _lastSyncedLines = parseNextStepLines(s?.nextSteps || '');
+    }
+
+    function updateSessionTitle(newTitle) {
+      if (!newTitle.trim() || !currentSessionKey) return;
+      // Update in S&N localStorage
+      const sessions = getSessions();
+      const s = sessions.find(s => s.key === currentSessionKey);
+      if (s) { s.fileName = newTitle.trim(); setSessions(sessions); }
+      if (currentSessionMeta) currentSessionMeta.fileName = newTitle.trim();
+      // Update in Weekly
+      syncSessionTitleToWS(newTitle.trim());
+    }
+
+    async function syncSessionTitleToWS(title) {
+      if (!_wsSessionId) return;
+      try {
+        const res = await fetch('/data/plan-and-track');
+        let wsData = await res.json();
+        if (!wsData) return;
+        const session = (wsData.sessions || []).find(s => s.id === _wsSessionId);
+        if (!session) return;
+        session.label = title;
+        await fetch('/data/plan-and-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wsData)
+        });
+      } catch(e) {
+        console.warn('Failed to sync title to WS:', e);
+      }
+    }
+
+    // === Attached-session UI + Split ===
+    const attachedRow = document.getElementById('attachedRow');
+    const attachedLabel = document.getElementById('attachedLabel');
+    const splitBtn = document.getElementById('splitBtn');
+    let _attachedType = null; // 'meeting' | 'show-note' | null
+    let _attachedLabel = '';
+
+    async function refreshAttachedInfo() {
+      _attachedType = null;
+      _attachedLabel = '';
+      if (!_wsSessionId) {
+        attachedRow.style.display = 'none';
+        splitBtn.style.display = 'none';
+        return;
+      }
+      try {
+        const res = await fetch('/data/plan-and-track');
+        const wsData = await res.json();
+        const session = (wsData?.sessions || []).find(s => s.id === _wsSessionId);
+        if (!session) { attachedRow.style.display = 'none'; splitBtn.style.display = 'none'; return; }
+        _attachedType = session.type || 'meeting';
+        _attachedLabel = session.label || '';
+        if (_attachedType === 'meeting') {
+          attachedRow.style.display = 'flex';
+          attachedLabel.textContent = 'Attached to meeting: ' + _attachedLabel;
+        } else {
+          attachedRow.style.display = 'none';
+          splitBtn.style.display = 'none';
+        }
+      } catch (e) {
+        attachedRow.style.display = 'none';
+        splitBtn.style.display = 'none';
+      }
+    }
+
+    async function splitSession() {
+      if (!_wsSessionId || _attachedType !== 'meeting') return;
+      try {
+        const res = await fetch('/data/plan-and-track');
+        let wsData = await res.json();
+        if (!wsData) return;
+        const oldSession = (wsData.sessions || []).find(s => s.id === _wsSessionId);
+        if (!oldSession) return;
+
+        // Detach our block from the meeting session (if we have one)
+        let block = null;
+        if (_wsBlockId) {
+          const idx = (oldSession.blocks || []).findIndex(b => b.id === _wsBlockId);
+          if (idx >= 0) {
+            block = oldSession.blocks[idx];
+            oldSession.blocks.splice(idx, 1);
+          }
+        }
+
+        const nowDate = new Date();
+        const newId = Math.random().toString(36).slice(2, 8);
+        const movedBlock = block || {
+          id: Math.random().toString(36).slice(2, 8),
+          title: currentSessionMeta?.fileName || sessionTitleInput.value || 'Notes',
+          time: '—',
+          covered: false,
+          notes: ''
+        };
+        const newSession = {
+          id: newId,
+          date: nowDate.toISOString().slice(0, 10),
+          startTime: nowDate.toTimeString().slice(0, 5),
+          label: sessionTitleInput.value || movedBlock.title || 'Split note',
+          type: 'show-note',
+          blocks: [movedBlock],
+          file: null,
+          createdAt: nowDate.toISOString()
+        };
+        wsData.sessions = [...wsData.sessions, newSession];
+        await fetch('/data/plan-and-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wsData)
+        });
+
+        _wsSessionId = newId;
+        _wsBlockId = movedBlock.id;
+        if (currentSessionMeta) { currentSessionMeta._wsSessionId = newId; currentSessionMeta._wsBlockId = movedBlock.id; }
+        const sns = getSessions();
+        const sn = sns.find(s => s.key === currentSessionKey);
+        if (sn) { sn._wsSessionId = newId; sn._wsBlockId = movedBlock.id; setSessions(sns); }
+        await refreshAttachedInfo();
+      } catch (e) { console.warn('splitSession failed', e); }
+    }
+
+    // Show Split button only while editing the title (and only when attached to a meeting).
+    sessionTitleInput.addEventListener('focus', () => {
+      if (_attachedType === 'meeting') splitBtn.style.display = 'inline-block';
+    });
+    // Use mousedown to avoid losing focus before click fires.
+    splitBtn.addEventListener('mousedown', (e) => { e.preventDefault(); });
+    splitBtn.addEventListener('click', async () => {
+      await splitSession();
+      splitBtn.style.display = 'none';
+    });
+    sessionTitleInput.addEventListener('blur', () => {
+      setTimeout(() => { splitBtn.style.display = 'none'; }, 150);
+    });
+
+    let _titleTimeout = null;
+    sessionTitleInput.addEventListener('input', () => {
+      clearTimeout(_titleTimeout);
+      _titleTimeout = setTimeout(() => updateSessionTitle(sessionTitleInput.value), 800);
+    });
+
+    // === Server persistence ===
+    const SERVER_BASE = ''; // same origin
+    async function saveSessionsToServer(sessions) {
+      try { await fetch(`${SERVER_BASE}/data/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sessions) }); } catch(e) { console.warn('Server save failed:', e); }
+    }
+
+    // === Weekly sync ===
+    let _lastSyncedLines = []; // track what we last synced to avoid unnecessary writes
+    let _syncTimeout = null;
+
+    function parseNextStepLines(text) {
+      return (text || '').split('\n')
+        .map(l => l.replace(/^[-•*\[\]x ]+/i, '').trim())
+        .filter(l => l.length > 0);
+    }
+
+    function lineHash(text) {
+      // Simple stable hash for dedup: lowercase trimmed
+      return text.toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    async function syncNextStepsToWS() {
+      const ns = nextStepsInput.value;
+      const lines = parseNextStepLines(ns);
+      const lineHashes = lines.map(lineHash);
+
+      // Skip if nothing changed
+      if (JSON.stringify(lineHashes) === JSON.stringify(_lastSyncedLines.map(lineHash))) return;
+
+      const sessionName = currentSessionMeta?.fileName || currentSessionKey.split('__')[0] || 'Show & Note';
+      const source = `S&N: ${sessionName}`;
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      try {
+        // Read current weekly data
+        const res = await fetch(`${SERVER_BASE}/data/plan-and-track`);
+        let wsData = await res.json();
+        if (!wsData) {
+          console.warn('No weekly data found, skipping sync.');
+          return;
+        }
+
+        const existingNS = wsData.nextSteps || [];
+
+        // Find items previously synced from THIS session (by source tag)
+        const fromThisSession = existingNS.filter(n => n.source === source);
+        const fromThisSessionTexts = new Set(fromThisSession.map(n => lineHash(n.text)));
+
+        // Items NOT from this session (preserve untouched)
+        const otherItems = existingNS.filter(n => n.source !== source);
+
+        // Build new synced items: keep existing ones that still match a line, add new ones
+        const newSyncedItems = [];
+        for (const line of lines) {
+          const h = lineHash(line);
+          // Check if we already have this item from this session
+          const existing = fromThisSession.find(n => lineHash(n.text) === h);
+          if (existing) {
+            newSyncedItems.push(existing); // keep as-is (preserves id, due, owner edits)
+          } else {
+            // New line: create a new next step
+            const uid = Math.random().toString(36).slice(2, 8);
+            newSyncedItems.push({
+              id: uid,
+              text: line,
+              owner: 'Me',
+              due: '',
+              source,
+              done: false,
+              createdAt: todayStr
+            });
+          }
+        }
+
+        // Merge: other items + newly synced items
+        wsData.nextSteps = [...otherItems, ...newSyncedItems];
+
+        // POST back
+        await fetch(`${SERVER_BASE}/data/plan-and-track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wsData)
+        });
+
+        _lastSyncedLines = lines;
+
+        // Visual feedback
+        saveIndicator.textContent = 'synced ✓';
+        saveIndicator.classList.add('just-saved');
+        setTimeout(() => { saveIndicator.textContent = 'auto-saved'; saveIndicator.classList.remove('just-saved'); }, 1500);
+      } catch(e) {
+        console.warn('WS sync failed:', e);
+        saveIndicator.textContent = 'sync failed';
+        setTimeout(() => { saveIndicator.textContent = 'auto-saved'; }, 2000);
+      }
+    }
+
+    let saveT;
+    let _notesSyncTimeout = null;
+    const debouncedSave = () => {
+      clearTimeout(saveT);
+      saveT = setTimeout(() => {
+        saveNotes();
+        const sessions = getSessions();
+        saveSessionsToServer(sessions);
+      }, 600);
+    };
+    const debouncedSyncNS = () => { clearTimeout(_syncTimeout); _syncTimeout = setTimeout(syncNextStepsToWS, 1200); };
+    const debouncedSyncNotes = () => { clearTimeout(_notesSyncTimeout); _notesSyncTimeout = setTimeout(syncNotesToWS, 1200); };
+
+    feedbackInput.addEventListener('input', () => { debouncedSave(); debouncedSyncNotes(); });
+    decisionsInput.addEventListener('input', () => { debouncedSave(); debouncedSyncNotes(); });
+    nextStepsInput.addEventListener('input', () => { debouncedSave(); debouncedSyncNS(); });
+
+    // === Build notes markdown ===
+    function buildNotesMd(session) {
+      const s = session || getSessions().find(s => s.key === currentSessionKey);
+      if (!s) return '';
+      const parts = [
+        `## Show & Note · ${s.fileName}`,
+        `_${fmtDate(s.updatedAt)}_`
+      ];
+      if (s.feedback?.trim()) parts.push(`\n### Feedback\n${s.feedback.trim()}`);
+      if (s.decisions?.trim()) parts.push(`\n### Decisions\n${s.decisions.trim()}`);
+      if (s.nextSteps?.trim()) parts.push(`\n### Next Steps\n${s.nextSteps.trim()}`);
+      parts.push('\n---\n_Captured with Show & Note_');
+      return parts.join('\n');
+    }
+
+    // === History ===
+    function fmtDate(ts) {
+      const d = new Date(ts), now = new Date();
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (d.toDateString() === now.toDateString()) return 'Today ' + time;
+      const y = new Date(now); y.setDate(now.getDate() - 1);
+      if (d.toDateString() === y.toDateString()) return 'Yesterday ' + time;
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
+    }
+
+    const HISTORY_VISIBLE = 3;
+    let _historyExpanded = false;
+    const historyExpandBtn = document.getElementById('historyExpandBtn');
+
+    function renderHistory() {
+      const sessions = getSessions();
+      if (!sessions.length) {
+        historyList.innerHTML = '<div class="history-empty">No past sessions yet</div>';
+        historyExpandBtn.style.display = 'none';
+        return;
+      }
+
+      const visible = _historyExpanded ? sessions : sessions.slice(0, HISTORY_VISIBLE);
+      const remaining = sessions.length - HISTORY_VISIBLE;
+
+      function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+      function buildNotesHtml(s) {
+        let html = '';
+        if (s.feedback?.trim()) html += `<div class="history-item-notes-section"><div class="history-item-notes-label fb"><span class="dot"></span>Feedback</div><div class="history-item-notes-text">${escHtml(s.feedback.trim())}</div></div>`;
+        if (s.decisions?.trim()) html += `<div class="history-item-notes-section"><div class="history-item-notes-label dc"><span class="dot"></span>Decisions</div><div class="history-item-notes-text">${escHtml(s.decisions.trim())}</div></div>`;
+        if (s.nextSteps?.trim()) html += `<div class="history-item-notes-section"><div class="history-item-notes-label ns"><span class="dot"></span>Next steps</div><div class="history-item-notes-text">${escHtml(s.nextSteps.trim())}</div></div>`;
+        return html;
+      }
+
+      historyList.innerHTML = visible.map((s, i) => {
+        const hasNotes = s.feedback?.trim() || s.decisions?.trim() || s.nextSteps?.trim();
+        const notesHtml = hasNotes ? buildNotesHtml(s) : '';
+        return `<div class="history-item${hasNotes ? ' history-item-expand' : ''}" data-i="${i}">
+          <div class="history-item-info">
+            <div class="history-item-name"><span>${escHtml(s.fileName)}</span></div>
+            <div class="history-item-date">${fmtDate(s.updatedAt)}${s.downloaded ? '<span class="dl-badge">downloaded</span>' : ''}</div>
+            ${hasNotes ? `<div class="history-item-expand-hint" data-toggle="${i}">Show notes &#9662;</div>` : ''}
+            ${hasNotes ? `<div class="history-item-notes" id="hn-${i}">${notesHtml}</div>` : ''}
+          </div>
+          <div class="history-item-actions">
+            <button class="copy-s" data-i="${i}" title="Copy notes"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            <button class="dl-s" data-i="${i}" title="Download .md">&#11015;</button>
+            <button class="del-s" data-i="${i}" title="Delete">&#10005;</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      if (sessions.length > HISTORY_VISIBLE) {
+        historyExpandBtn.style.display = '';
+        historyExpandBtn.textContent = _historyExpanded ? 'Show less ▴' : `Show ${remaining} more ▾`;
+      } else {
+        historyExpandBtn.style.display = 'none';
+      }
+
+      historyList.querySelectorAll('.history-item-expand-hint').forEach(h => h.addEventListener('click', e => {
+        e.stopPropagation();
+        const idx = h.dataset.toggle;
+        const notes = document.getElementById('hn-' + idx);
+        const isOpen = notes.classList.toggle('open');
+        h.innerHTML = isOpen ? 'Hide notes &#9652;' : 'Show notes &#9662;';
+      }));
+
+      historyList.querySelectorAll('.copy-s').forEach(b => b.addEventListener('click', e => {
+        e.stopPropagation();
+        const s = sessions[+b.dataset.i];
+        navigator.clipboard.writeText(buildNotesMd(s)).then(() => { b.textContent = '✓'; setTimeout(() => b.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', 1200); });
+      }));
+
+      historyList.querySelectorAll('.dl-s').forEach(b => b.addEventListener('click', e => {
+        e.stopPropagation();
+        const idx = +b.dataset.i;
+        const s = sessions[idx];
+        downloadMd(buildNotesMd(s), s.fileName);
+        s.downloaded = true;
+        setSessions(sessions);
+        renderHistory();
+      }));
+
+      historyList.querySelectorAll('.del-s').forEach(b => b.addEventListener('click', e => {
+        e.stopPropagation();
+        sessions.splice(+b.dataset.i, 1);
+        setSessions(sessions);
+        renderHistory();
+      }));
+    }
+
+    historyExpandBtn.addEventListener('click', () => {
+      _historyExpanded = !_historyExpanded;
+      renderHistory();
+    });
+
+    // === Download helper ===
+    function downloadMd(content, name) {
+      const blob = new Blob([content], { type: 'text/markdown' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (name || 'notes').replace(/[^a-zA-Z0-9_\- ]/g, '') + '_show-and-note.md';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // === Collapsible sections ===
+    document.querySelectorAll('.note-section-header').forEach(h => {
+      h.addEventListener('click', () => {
+        $(h.dataset.target).classList.toggle('collapsed');
+        h.querySelector('.chev').classList.toggle('collapsed');
+      });
+    });
+
+    // === Notes toggle ===
+    function toggleNotes() {
+      const open = notesPanel.classList.toggle('open');
+      appDiv.classList.toggle('notes-open', open);
+      if (notesToggleBtn) {
+        notesToggleBtn.classList.toggle('active', open);
+        notesToggleBtn.innerHTML = open ? '&#10005;' : '&#9998;';
+      }
+    }
+
+    copyNotesBtn.addEventListener('click', () => {
+      const txt = buildNotesMd();
+      if (!txt) return;
+      navigator.clipboard.writeText(txt).then(() => {
+        copyNotesBtn.textContent = 'Copied!'; copyNotesBtn.classList.add('copied');
+        setTimeout(() => { copyNotesBtn.textContent = 'Copy All'; copyNotesBtn.classList.remove('copied'); }, 1500);
+      });
+    });
+
+    exportSessionBtn.addEventListener('click', () => {
+      const s = getSessions().find(s => s.key === currentSessionKey);
+      if (!s) return;
+      downloadMd(buildNotesMd(s), s.fileName);
+    });
+
+    // === Data menu (Export / Restore / Clear) ===
+    function snCloseDataMenu() {
+      if (!snDataMenu) return;
+      snDataMenu.hidden = true;
+      if (snDataMenuBtn) snDataMenuBtn.setAttribute('aria-expanded', 'false');
+    }
+    if (snDataMenuBtn) {
+      snDataMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = snDataMenu.hidden;
+        snDataMenu.hidden = !open;
+        snDataMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', (e) => {
+        if (snDataMenu && !snDataMenu.hidden && snDataMenuWrap && !snDataMenuWrap.contains(e.target)) snCloseDataMenu();
+      });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') snCloseDataMenu(); });
+    }
+
+    // Export all sessions as markdown (previous "Export all .md" behavior)
+    const snExportMdBtn = $('snExportMd');
+    if (snExportMdBtn) snExportMdBtn.addEventListener('click', () => {
+      snCloseDataMenu();
+      const sessions = getSessions();
+      if (!sessions.length) return;
+      const content = sessions.map(s => buildNotesMd(s)).filter(Boolean).join('\n\n---\n\n');
+      downloadMd(content, 'all-sessions');
+      sessions.forEach(s => s.downloaded = true);
+      setSessions(sessions);
+      saveSessionsToServer(sessions);
+      renderHistory();
+    });
+
+    // Export sessions as JSON (structured backup, restore-compatible)
+    const snExportJsonBtn = $('snExportJson');
+    if (snExportJsonBtn) snExportJsonBtn.addEventListener('click', () => {
+      snCloseDataMenu();
+      const sessions = getSessions();
+      const json = JSON.stringify(sessions, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = 'sessions_' + today + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // Restore sessions from a .json backup
+    const snRestoreBtn = $('snRestoreBtn');
+    if (snRestoreBtn) snRestoreBtn.addEventListener('click', () => {
+      snCloseDataMenu();
+      snRestoreInput.click();
+    });
+    if (snRestoreInput) snRestoreInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          if (!Array.isArray(parsed)) throw new Error('Expected a sessions array');
+          if (!confirm('Replace current sessions with ' + parsed.length + ' session(s) from backup? This cannot be undone.')) return;
+          setSessions(parsed);
+          saveSessionsToServer(parsed);
+          renderHistory();
+        } catch (err) {
+          alert('Invalid backup file: ' + (err && err.message || err));
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // Clear all Show & Note data (local + server)
+    const snClearBtn = $('snClearBtn');
+    if (snClearBtn) snClearBtn.addEventListener('click', () => {
+      snCloseDataMenu();
+      if (!confirm('Clear all Show & Note sessions? This affects only this tool. Rolling backups are kept.')) return;
+      setSessions([]);
+      saveSessionsToServer([]);
+      renderHistory();
+    });
+
+    clearNotesBtn.addEventListener('click', () => {
+      if (!feedbackInput.value && !decisionsInput.value && !nextStepsInput.value) return;
+      feedbackInput.value = ''; decisionsInput.value = ''; nextStepsInput.value = ''; saveNotes();
+    });
+
+    // === Drag & drop ===
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+    // === Notes-only session (opens as narrow full-height popup flush to top-right) ===
+    notesOnlyBtn.addEventListener('click', () => {
+      const name = suggestNotesOnlyName();
+      const w = 380;
+      const h = screen.availHeight;
+      const left = Math.max(0, screen.availWidth - w);
+      const top = 0;
+      const url = `/show-and-note.html?notesPopup=1&name=${encodeURIComponent(name)}`;
+      const features = `width=${w},height=${h},left=${left},top=${top},popup=yes,resizable=yes,scrollbars=yes`;
+      const popup = window.open(url, '_blank', features);
+      if (!popup) {
+        alert('Popup blocked. Please allow popups for this site.');
+      }
+    });
+
+    // === Handle file ===
+    function handleFile(file) {
+      const fileName = file.name.replace(/\.[^.]+$/, '');
+      const fileType = detectType(file.name);
+      currentFileType = fileType;
+      openSession(fileName, fileType);
+
+      if (fileType === 'image') {
+        const reader = new FileReader();
+        reader.onload = e => {
+          showPresenter(fileName, fileType);
+          appDiv.innerHTML = `<div class="img-content"><img src="${e.target.result}" alt="${fileName}" /></div>`;
+          loadNotes();
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = e => renderContent(e.target.result, fileName, fileType);
+        reader.readAsText(file);
+      }
+    }
+
+    // === Show presenter chrome ===
+    function showPresenter(fileName, fileType) {
+      loader.style.display = 'none';
+      appDiv.style.display = 'block';
+      document.body.style.background = 'var(--warm-white)';
+      errorBox.innerHTML = '';
+
+      // Left-side: back-to-Show-&-Note link only
+      toolbarEl = document.createElement('div');
+      toolbarEl.className = 'toolbar';
+      toolbarEl.innerHTML = `<a href="/show-and-note.html" class="workspace-link" title="Back to Show & Note" aria-label="Back to Show & Note"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>`;
+      document.body.appendChild(toolbarEl);
+
+      // Right-side cluster: theme toggle (left) + pencil (right)
+      const rightCluster = document.createElement('div');
+      rightCluster.className = 'presenter-right';
+      document.body.appendChild(rightCluster);
+
+      const presenterThemeBtn = document.createElement('button');
+      presenterThemeBtn.className = 'sn-theme-toggle presenter';
+      presenterThemeBtn.id = 'presenterThemeToggle';
+      presenterThemeBtn.title = 'Toggle theme';
+      presenterThemeBtn.onclick = () => setSnTheme(getSnTheme() === 'dark' ? 'light' : 'dark');
+      rightCluster.appendChild(presenterThemeBtn);
+
+      notesToggleBtn = document.createElement('button');
+      notesToggleBtn.className = 'notes-toggle';
+      notesToggleBtn.innerHTML = '&#9998;';
+      notesToggleBtn.title = 'Toggle notes';
+      notesToggleBtn.onclick = toggleNotes;
+      rightCluster.appendChild(notesToggleBtn);
+
+      updateThemeButtons(getSnTheme());
+
+      // Hide the loader's top-right theme toggle while in presenter mode
+      const loaderThemeBtn = $('loaderThemeToggle');
+      if (loaderThemeBtn) loaderThemeBtn.style.display = 'none';
+
+      // Set session title in notes panel
+      sessionTitleInput.value = fileName || '';
+    }
+
+    function goBack() {
+      location.reload();
+    }
+
+    // === Render by type ===
+    function renderContent(content, fileName, fileType) {
+      showPresenter(fileName, fileType);
+      try {
+        switch (fileType) {
+          case 'jsx': renderJSX(content); break;
+          case 'html': renderHTML(content); break;
+          case 'markdown': renderMarkdown(content); break;
+          case 'svg': renderSVG(content); break;
+          case 'mermaid': renderMermaid(content); break;
+          default:
+            appDiv.innerHTML = `<div class="md-content"><pre>${content}</pre></div>`;
+        }
+      } catch (err) {
+        errorBox.innerHTML = `<div class="error-box">Error: ${err.message}</div>`;
+      }
+      loadNotes();
+    }
+
+    function renderJSX(code) {
+      let p = code
+        .replace(/^import\s+React[\s,{].*?from\s+['"]react['"];?\s*$/gm, '')
+        .replace(/^import\s+\{([^}]+)\}\s+from\s+['"]react['"];?\s*$/gm, (m, imp) => {
+          return imp.split(',').map(n => n.trim().split(/\s+as\s+/)).map(([o, a]) => `const ${a || o} = React.${o};`).join('\n');
+        })
+        .replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, '// [import removed]')
+        .replace(/^import\s+['"].*?['"];?\s*$/gm, '// [import removed]');
+      p = p.replace(/^export\s+default\s+/gm, 'const __DefaultExport__ = ').replace(/^export\s+/gm, '');
+      p += `;(function(){
+        let C=typeof __DefaultExport__!=='undefined'?__DefaultExport__:null;
+        if(!C){const cs=Object.keys(window).filter(k=>/^[A-Z]/.test(k)&&typeof window[k]==='function');if(cs.length)C=window[cs[cs.length-1]];}
+        if(C)ReactDOM.createRoot(document.getElementById('app')).render(React.createElement(C));
+        else throw new Error('No React component found.');
+      })();`;
+      const transpiled = Babel.transform(p, { presets: ['react'], filename: 'c.jsx' }).code;
+      const s = document.createElement('script'); s.textContent = transpiled; document.body.appendChild(s);
+    }
+
+    function renderHTML(content) {
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'width:100%;height:100vh;border:none;';
+      appDiv.appendChild(iframe);
+      iframe.contentDocument.open();
+      iframe.contentDocument.write(content);
+      iframe.contentDocument.close();
+    }
+
+    function renderMarkdown(content) {
+      appDiv.innerHTML = `<div class="md-content">${marked.parse(content)}</div>`;
+    }
+
+    function renderSVG(content) {
+      appDiv.innerHTML = `<div class="svg-content">${content}</div>`;
+    }
+
+    async function renderMermaid(content) {
+      appDiv.innerHTML = `<div class="mermaid-content"><div class="mermaid">${content}</div></div>`;
+      mermaid.initialize({ startOnLoad: false, theme: 'default' });
+      await mermaid.run({ nodes: appDiv.querySelectorAll('.mermaid') });
+    }
+
+    // === Init ===
+    mermaid.initialize({ startOnLoad: false });
+    // Hydrate localStorage from server before first render so server JSON is the
+    // source of truth on page load (colleagues with empty server get a clean slate
+    // regardless of any stale browser state).
+    (async () => {
+      try {
+        const res = await fetch('/data/sessions');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            localStorage.setItem('sn-sessions', JSON.stringify(data));
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to hydrate sessions from server:', e);
+      }
+      renderHistory();
+    })();
+
+    // === Files from server ===
+    const filesSection = $('filesSection');
+    const filesGrid = $('filesGrid');
+
+    function fmtFileDate(isoStr) {
+      const d = new Date(isoStr), now = new Date();
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (d.toDateString() === now.toDateString()) return 'Today ' + time;
+      const y = new Date(now); y.setDate(now.getDate() - 1);
+      if (d.toDateString() === y.toDateString()) return 'Yesterday ' + time;
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
+    }
+
+    const FILES_FOLDER = 'prototypes-and-presentations';
+    const FILES_VISIBLE = 3;
+    let _allServerFiles = [];
+    let _filesExpanded = false;
+    const filesExpandBtn = $('filesExpandBtn');
+
+    function renderFileItem(f) {
+      const displayName = (f.name || f.path || '').replace(/\.[^.]+$/, '').split('/').pop();
+      const filePath = f.path || f.name;
+      return `<div class="file-item" data-path="${filePath}" data-name="${f.name || filePath.split('/').pop()}" data-ext="${f.ext}">
+        <span class="file-ext">${f.ext}</span>
+        <span class="file-name">${displayName}</span>
+        <span class="file-date">${fmtFileDate(f.modified)}</span>
+      </div>`;
+    }
+
+    function renderServerFiles() {
+      const visible = _filesExpanded ? _allServerFiles : _allServerFiles.slice(0, FILES_VISIBLE);
+      const remaining = _allServerFiles.length - FILES_VISIBLE;
+
+      filesGrid.innerHTML = visible.map(renderFileItem).join('');
+
+      if (_allServerFiles.length > FILES_VISIBLE) {
+        filesExpandBtn.style.display = '';
+        filesExpandBtn.textContent = _filesExpanded ? 'Show less ▴' : `Show ${remaining} more ▾`;
+      } else {
+        filesExpandBtn.style.display = 'none';
+      }
+
+      filesGrid.querySelectorAll('.file-item').forEach(el => {
+        el.addEventListener('click', () => {
+          presentServerFile(el.dataset.path, el.dataset.name, el.dataset.ext);
+        });
+      });
+    }
+
+    const filesEmpty = $('filesEmpty');
+
+    async function loadServerFiles() {
+      try {
+        const res = await fetch('/api/files');
+        const allFiles = await res.json();
+
+        if (!allFiles || !allFiles.length) {
+          _allServerFiles = [];
+        } else {
+          const hasSubfolders = allFiles.some(f => f.folder || f.path?.includes('/'));
+          if (hasSubfolders) {
+            _allServerFiles = allFiles.filter(f =>
+              (f.folder || '').toLowerCase() === FILES_FOLDER.toLowerCase() ||
+              (f.path || '').toLowerCase().startsWith(FILES_FOLDER.toLowerCase() + '/')
+            );
+          } else {
+            _allServerFiles = allFiles;
+          }
+        }
+
+        if (!_allServerFiles.length) {
+          filesGrid.innerHTML = '';
+          filesEmpty.style.display = '';
+          filesExpandBtn.style.display = 'none';
+          return;
+        }
+        filesEmpty.style.display = 'none';
+        renderServerFiles();
+      } catch(e) {
+        console.warn('Failed to load files:', e);
+        filesGrid.innerHTML = '';
+        filesEmpty.style.display = '';
+        filesExpandBtn.style.display = 'none';
+      }
+    }
+
+    filesExpandBtn.addEventListener('click', () => {
+      _filesExpanded = !_filesExpanded;
+      renderServerFiles();
+    });
+
+    async function presentServerFile(filePath, name, ext) {
+      const fileName = name.replace(/\.[^.]+$/, '');
+      const fileType = detectType(name);
+      currentFileType = fileType;
+      openSession(fileName, fileType);
+
+      if (fileType === 'image') {
+        showPresenter(fileName, fileType);
+        appDiv.innerHTML = `<div class="img-content"><img src="/files/${filePath.split('/').map(encodeURIComponent).join('/')}" alt="${fileName}" /></div>`;
+        loadNotes();
+        return;
+      }
+
+      try {
+        const url = `/files/${filePath.split('/').map(encodeURIComponent).join('/')}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Server returned ${res.status} for ${url}`);
+        const content = await res.text();
+        if (!content.trim()) throw new Error('File is empty');
+        renderContent(content, fileName, fileType);
+      } catch(e) {
+        showPresenter(fileName, fileType);
+        appDiv.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:32px;"><div style="background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:24px 32px;max-width:500px;font-family:var(--sans);"><div style="font-weight:600;color:var(--ink);margin-bottom:8px;">Failed to render ${fileName}</div><div style="font-size:0.85rem;color:var(--ink-muted);line-height:1.6;word-break:break-word;">${e.message}</div></div></div>`;
+        loadNotes();
+      }
+    }
+
+    loadServerFiles();
+
+    // === Theme ===
+    const SUN_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+    const MOON_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M13.36 10.05A6 6 0 015.95 2.64 6 6 0 1013.36 10.05z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+
+    function getSnTheme() { return localStorage.getItem('cw-theme') || 'light'; }
+    function setSnTheme(t) {
+      localStorage.setItem('cw-theme', t);
+      document.documentElement.setAttribute('data-theme', t);
+      updateThemeButtons(t);
+      // Sync to weekly data
+      fetch('/data/plan-and-track').then(r => r.json()).then(d => {
+        if (d && d.theme !== t) { d.theme = t; fetch('/data/plan-and-track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); }
+      }).catch(() => {});
+    }
+    function updateThemeButtons(t) {
+      const icon = t === 'dark' ? SUN_SVG : MOON_SVG;
+      const lt = $('loaderThemeToggle');
+      if (lt) lt.innerHTML = icon;
+      const pt = $('presenterThemeToggle');
+      if (pt) pt.innerHTML = icon;
+    }
+
+    // Init theme on load
+    (async function initSnTheme() {
+      try {
+        const res = await fetch('/data/plan-and-track');
+        const d = await res.json();
+        if (d && d.theme) { setSnTheme(d.theme); return; }
+      } catch(e) {}
+      const t = getSnTheme();
+      document.documentElement.setAttribute('data-theme', t);
+      updateThemeButtons(t);
+    })();
+
+    $('loaderThemeToggle').addEventListener('click', () => {
+      setSnTheme(getSnTheme() === 'dark' ? 'light' : 'dark');
+    });
+
+    // === Kebab menu in notes header (wired for popup mode; CSS keeps it hidden otherwise) ===
+    (function initNotesMenu() {
+      const btn = $('notesMenuBtn');
+      const menu = $('notesMenu');
+      if (!btn || !menu) return;
+      const hide = () => { menu.hidden = true; };
+      const toggle = e => { e.stopPropagation(); menu.hidden = !menu.hidden; };
+      btn.addEventListener('click', toggle);
+      document.addEventListener('click', e => { if (!menu.contains(e.target) && e.target !== btn) hide(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+      $('notesMenuCopy').addEventListener('click',   () => { hide(); copyNotesBtn.click(); });
+      $('notesMenuExport').addEventListener('click', () => { hide(); exportSessionBtn.click(); });
+      $('notesMenuTheme').addEventListener('click',  () => { hide(); setSnTheme(getSnTheme() === 'dark' ? 'light' : 'dark'); });
+      $('notesMenuClear').addEventListener('click',  () => { hide(); clearNotesBtn.click(); });
+    })();
+
+    // === Popup mode: auto-start notes-only session when opened as floating window ===
+    (function initPopupMode() {
+      const params = new URLSearchParams(location.search);
+      if (params.get('notesPopup') !== '1') return;
+      const name = params.get('name') || suggestNotesOnlyName();
+      document.body.classList.add('popup-mode');
+      document.title = `Notes · ${name}`;
+      currentFileType = 'notes';
+      openSession(name, 'notes');
+      loadNotes();
+      notesPanel.classList.add('open');
+      sessionTitleInput.value = name;
+    })();
+  </script>
+</body>
+</html>

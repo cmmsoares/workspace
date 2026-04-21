@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Context Catch-up</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'SF Pro Text', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; transition: background 0.2s, color 0.2s; overflow-y: auto; }
+    input[type="date"] { font-family: inherit; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+    [data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+    textarea { font-family: inherit; resize: none; }
+    code { font-family: 'SF Mono', 'Fira Code', monospace; }
+
+  </style>
+</head>
+<body>
+<script>
+  window.__saveStatus = (function(){
+    let t;
+    const el = () => document.getElementById('saveStatus');
+    const txt = () => document.getElementById('saveStatusText');
+    return {
+      saving(){ clearTimeout(t); if(!el())return; el().classList.add('is-saving'); txt().textContent='syncing…'; },
+      saved(){ clearTimeout(t); if(!el())return; el().classList.remove('is-saving'); txt().textContent='saved'; t=setTimeout(()=>{ if(txt())txt().textContent='auto-saved'; },1500); },
+      failed(){ clearTimeout(t); if(!el())return; el().classList.remove('is-saving'); txt().textContent='sync failed'; t=setTimeout(()=>{ if(txt())txt().textContent='auto-saved'; },2500); }
+    };
+  })();
+  // Wrap fetch to auto-update save status on POSTs to our data endpoints
+  (function(){
+    const origFetch = window.fetch.bind(window);
+    const SAVE_PATHS = ['/data/context-catchup','/data/plan-and-track'];
+    window.fetch = async function(input, init){
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const method = (init && init.method) || (typeof input === 'object' && input.method) || 'GET';
+      const isSave = method.toUpperCase() === 'POST' && SAVE_PATHS.some(p => url.includes(p));
+      if (isSave) window.__saveStatus.saving();
+      try {
+        const res = await origFetch(input, init);
+        if (isSave) { res.ok ? window.__saveStatus.saved() : window.__saveStatus.failed(); }
+        return res;
+      } catch(e) { if (isSave) window.__saveStatus.failed(); throw e; }
+    };
+  })();
+</script>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const API_DATA = '/data/context-catchup';
+const API_FILES = '/api/context-catchup-files';
+const uid = () => Math.random().toString(36).slice(2, 8);
+
+// ── Theme tokens ─────────────────────────────────────────────
+const THEMES = {
+  light: {
+    bg: '#FFFFFF', surface: '#FFFFFF', surface2: '#F5F5F7', border: '#E5E5E7', borderStrong: '#D2D2D7',
+    text: '#1D1D1F', muted: '#86868B', faint: '#C7C7CC',
+    accent: '#C99D20', accentBg: '#FEF3C7', accentText: '#8A6A14', accentLight: '#FEF3C7',
+    danger: '#D70015', dangerBg: 'rgba(215,0,21,0.08)',
+    warn: '#8A6A14', warnBg: '#FEF3C7',
+    ok: '#248A3D', okBg: '#D1F1D9',
+    code: '#1D1D1F', codeBg: '#F5F5F7',
+    shadow: '0 2px 12px rgba(0,0,0,0.06)',
+  },
+  dark: {
+    bg: '#1C1C1E', surface: '#2C2C2E', surface2: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.09)', borderStrong: 'rgba(255,255,255,0.18)',
+    text: '#F5F5F7', muted: '#98989D', faint: '#6C6C70',
+    accent: '#FFD60A', accentBg: 'rgba(255,214,10,0.15)', accentText: '#FFD60A', accentLight: 'rgba(255,214,10,0.15)',
+    danger: '#FF453A', dangerBg: 'rgba(255,69,58,0.14)',
+    warn: '#FFD60A', warnBg: 'rgba(255,214,10,0.14)',
+    ok: '#30D158', okBg: 'rgba(48,209,88,0.14)',
+    code: '#F5F5F7', codeBg: 'rgba(255,255,255,0.06)',
+    shadow: '0 2px 12px rgba(0,0,0,0.35)',
+  }
+};
+
+// ── Helpers ──────────────────────────────────────────────────
+const fmt = (iso) => {
+  if (!iso) return '';
+  try {
+    return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch { return iso; }
+};
+
+const PROMPT_TEMPLATE = (from, to) => `I need help catching up after time away. I was away from ${from || '[AWAY-FROM DATE]'} to ${to || '[BACK-ON DATE]'}.
+
+## Step 1 · Read the catch-up folder
+List and read all files in the \`files/Context-catch-up/\` folder inside my selected workspace folder. Files may include meeting transcripts, chat/Slack exports, email summaries, wiki/Confluence pages, ticket exports, product boards, or any notes from colleagues.
+
+## Step 2 · Filter by dates
+Focus only on content dated between ${from || '[AWAY-FROM DATE]'} and ${to || '[BACK-ON DATE]'}. Skip anything clearly outside this window.
+
+## Step 3 · Infer my context
+Before extracting anything, build a short picture of what I work on: the recurring projects, products, teams, stakeholders, and topics that define my day-to-day. Pull signal from whatever is available to you, in this order:
+
+1. **My memory / skills** · any personal skill or memory file you have access to (e.g. user skills under \`.claude/skills/\`, CLAUDE.md, or a personal work-context skill) that describes my role, products, or stakeholders.
+2. **My Plan & Track** · \`userName\`, \`userRole\`, \`initiatives[]\`, \`focusAreas[]\`, recent \`sessions[].label\`, and tags inside \`data/plan-and-track.json\`.
+3. **Past Claude sessions** · if you can list or read prior session transcripts, skim the most recent ones for recurring project names, people, and themes.
+4. **The catch-up files themselves** · as a fallback or to fill gaps.
+
+Use that inferred context to judge what matters to me. Do NOT assume a specific role, company, or domain. Ground everything in what you actually find. If the signal is too thin, say so before continuing.
+
+## Step 4 · Analyze and extract
+For each file, extract:
+- Decisions that were made (that I need to be aware of)
+- Action items assigned to me or my team
+- Blockers or dependencies that emerged
+- Important updates or context shifts
+- Things that changed while I was gone
+
+Each item must have a short **title** (3–6 words) naming the topic, grounded in the actual projects/products/teams you inferred in Step 3. Keep titles specific. A generic "Decision" or "Update" is too vague. The **text** should fully describe what I need to know or do, in 1–3 sentences. Don't over-summarise. I'd rather read a bit more than miss context.
+
+Focus on items that touch the recurring projects and stakeholders you identified in Step 3. Deprioritize generic news unless it directly affects that work.
+
+## Step 5 · Save to workspace
+Write results to \`data/context-catchup.json\` using this exact JSON structure:
+
+{
+  "vacationPeriod": { "from": "${from || ''}", "to": "${to || ''}" },
+  "analyzedAt": "<today's ISO date>",
+  "items": [
+    {
+      "id": "<6 random alphanumeric chars>",
+      "title": "<3–6 word topic title>",
+      "text": "<1–3 sentences: what happened and what it means for me>",
+      "source": "<meeting name or file origin · the specific meeting, document, or thread this came from>",
+      "done": false
+    }
+  ]
+}
+
+Order items by importance: most urgent first, FYI-level last. Do NOT assign priority buckets (no "now" / "week" / "later"). I'll triage from the flat list myself.
+
+## Step 6 · Summary
+After saving the JSON, give me a brief plain-text summary: the top 3 things I should address first today, and anything I can safely skim later.`;
+
+// ── Components ───────────────────────────────────────────────
+function Chip({ T, label, color, bg }) {
+  return (
+    <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+      textTransform: 'uppercase', padding: '3px 10px', borderRadius: 100, background: bg, color }}>
+      {label}
+    </span>
+  );
+}
+
+function ProgressBar({ T, done, total }) {
+  if (!total) return null;
+  const pct = Math.round((done / total) * 100);
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.muted, marginBottom: 6 }}>
+        <span>{done} of {total} done</span>
+        <span>{pct}%</span>
+      </div>
+      <div style={{ height: 4, borderRadius: 2, background: T.border, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: T.accent, borderRadius: 2, transition: 'width 0.3s' }} />
+      </div>
+    </div>
+  );
+}
+
+function Card({ T, children, style }) {
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12,
+      padding: '14px 18px', marginBottom: 10, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+function StepBadge({ T, n }) {
+  return (
+    <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.accentBg,
+      color: T.accentText, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center',
+      justifyContent: 'center', flexShrink: 0 }}>
+      {n}
+    </div>
+  );
+}
+
+function CopyBtn({ T, text, label = 'Copy', doneLabel = 'Copied!' }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch(e) {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+  return (
+    <button onClick={copy} style={{ background: copied ? T.okBg : T.accentBg, color: copied ? T.ok : T.accentText,
+      border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600,
+      cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
+      {copied ? `✓ ${doneLabel}` : label}
+    </button>
+  );
+}
+
+function ItemRow({ T, item, onToggle, onRemove, onAddNextStep }) {
+  const [nsOpen, setNsOpen] = useState(false);
+  const [nsText, setNsText] = useState('');
+  const [nsSaved, setNsSaved] = useState(false);
+  const nsRef = useRef(null);
+  useEffect(() => { if (nsOpen && nsRef.current) nsRef.current.focus(); }, [nsOpen]);
+  const source = item.source && item.source !== 'manual'
+    ? `Catch-up: ${item.source.replace(/\.(vtt|txt|md|pdf|docx?)$/i, '')}`
+    : 'Catch-up';
+  const submit = async () => {
+    if (!nsText.trim()) return;
+    await onAddNextStep({ text: nsText.trim(), source });
+    setNsText('');
+    setNsOpen(false);
+    setNsSaved(true);
+    setTimeout(() => setNsSaved(false), 1600);
+  };
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '11px 0',
+      borderBottom: `1px solid ${T.border}`, opacity: item.done ? 0.45 : 1 }}>
+      <input type="checkbox" checked={item.done} onChange={() => onToggle(item.id)}
+        style={{ marginTop: 3, width: 15, height: 15, cursor: 'pointer', accentColor: T.accent, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.text,
+          textDecoration: item.done ? 'line-through' : 'none', lineHeight: 1.4 }}>
+          {item.title || item.text}
+        </div>
+        {item.text && item.title && (
+          <div style={{
+            fontSize: 11.5, color: T.muted, lineHeight: 1.55, marginTop: 3,
+            textDecoration: item.done ? 'line-through' : 'none',
+            whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+          }}>
+            {item.text}
+          </div>
+        )}
+        {item.source && item.source !== 'manual' && (
+          <div style={{ marginTop: 6 }}>
+            <span style={{ fontSize: 10, color: T.accent, background: T.accentLight,
+              padding: '1px 8px', borderRadius: 100, display: 'inline-block', lineHeight: 1.5,
+              maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.source.replace(/\.(vtt|txt|md|pdf|docx?)$/i, '')}
+            </span>
+          </div>
+        )}
+        {!item.done && onAddNextStep && (
+          nsOpen ? (
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              <input ref={nsRef} value={nsText} onChange={e => setNsText(e.target.value)}
+                placeholder="Next step..."
+                onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') { setNsOpen(false); setNsText(''); }}}
+                style={{ flex: 1, fontSize: 12, padding: '5px 8px', border: `1px solid ${T.border}`,
+                  borderRadius: 8, fontFamily: 'inherit', outline: 'none', background: T.surface2, color: T.text }} />
+              <button onClick={submit}
+                style={{ fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 100,
+                  border: 'none', background: T.accent, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>Add</button>
+              <button onClick={() => { setNsOpen(false); setNsText(''); }}
+                style={{ fontSize: 11, padding: '5px 8px', borderRadius: 100, border: `1px solid ${T.border}`,
+                  background: T.surface, color: T.muted, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
+            </div>
+          ) : (
+            <button onClick={() => setNsOpen(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600,
+                color: nsSaved ? T.accent : T.accent, background: 'none', border: 'none',
+                cursor: 'pointer', padding: '4px 0', marginTop: 6, fontFamily: 'inherit' }}>
+              → {nsSaved ? 'Added to Next steps ✓' : 'Add next steps'}
+            </button>
+          )
+        )}
+      </div>
+      <button onClick={() => onRemove(item.id)} style={{ background: 'none', border: 'none',
+        color: T.faint, cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 2px', flexShrink: 0, marginTop: 1 }}
+        title="Remove">×</button>
+    </div>
+  );
+}
+
+function PromptBlock({ T, from, to }) {
+  const [sectionOpen, setSectionOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const prompt = PROMPT_TEMPLATE(from, to);
+  const datesReady = from && to;
+  return (
+    <Card T={T} style={{ padding: 0, overflow: 'hidden', marginBottom: 20, marginTop: 12,
+      borderLeft: `3px solid ${T.accent}` }}>
+      <div onClick={() => setSectionOpen(o => !o)}
+        style={{ padding: '12px 16px', cursor: 'pointer', display: 'flex', gap: 10,
+          alignItems: 'center', userSelect: 'none' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+          letterSpacing: '.06em', color: T.accent }}>Automations</span>
+        <span style={{ fontSize: 12, color: T.muted, flex: 1 }}>
+          1 thing Claude can run for you. Copy a prompt to try it.
+        </span>
+        <span style={{ fontSize: 10, color: T.faint }}>{sectionOpen ? '▾' : '▸'}</span>
+      </div>
+      {sectionOpen && (
+        <div style={{ padding: '0 16px 14px' }}>
+          <div style={{ borderTop: `1px solid ${T.border}`, padding: '12px 0' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>Post-vacation catch-up</div>
+            <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Run when you return from time away</div>
+            <div style={{ padding: '12px 0 4px', fontSize: 12.5, color: T.muted, lineHeight: 1.6 }}>
+              <div style={{ marginBottom: 14 }}>
+                Reads everything in <code style={{ background: T.codeBg, color: T.code,
+                  padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>files/Context-catch-up/</code>,
+                extracts what matters across the dates you set, and writes an importance-ordered list to
+                <code style={{ background: T.codeBg, color: T.code, padding: '1px 5px', borderRadius: 4,
+                  fontSize: 11, marginLeft: 4 }}>data/context-catchup.json</code>.
+              </div>
+              <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
+                <div onClick={e => { e.stopPropagation(); setPromptOpen(o => !o); }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', cursor: 'pointer', background: T.surface, userSelect: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>Cowork prompt</span>
+                    <span style={{ fontSize: 11, color: datesReady ? T.muted : T.warn }}>
+                      {datesReady ? '· paste into a fresh chat to run it once' : '· set dates first for best results'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <CopyBtn T={T} text={prompt} label="Copy prompt" doneLabel="Copied!" />
+                    <span style={{ color: T.faint, fontSize: 12 }}>{promptOpen ? '▲' : '▼'}</span>
+                  </div>
+                </div>
+                {promptOpen && (
+                  <div style={{ padding: '0 16px 16px', background: T.surface2 }}>
+                    <pre style={{ fontSize: 11.5, color: T.text, lineHeight: 1.7, whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word', fontFamily: "'SF Mono','Menlo','Fira Code',monospace",
+                      marginTop: 12, maxHeight: 360, overflowY: 'auto' }}>
+                      {prompt}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ── Main App ─────────────────────────────────────────────────
+function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('cw-theme') || 'light');
+  const [data, setData] = useState(null);       // loaded from /data/context-catchup
+  const [fileInfo, setFileInfo] = useState(null); // from /api/context-catchup-files
+  const [awayFrom, setAwayFrom] = useState('');
+  const [backOn, setBackOn] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showHow, setShowHow] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newText, setNewText] = useState('');
+  const [sortBy, setSortBy] = useState('importance'); // 'importance' | 'source'
+  const pollRef = useRef(null);
+
+  const T = THEMES[theme] || THEMES.light;
+
+  useEffect(() => {
+    document.body.style.background = T.bg;
+    document.body.style.color = T.text;
+  }, [theme, T.bg, T.text]);
+
+  // Sync theme with Weekly
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'cw-theme') setTheme(e.newValue || 'light'); };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('cw-theme', next);
+    setTheme(next);
+  };
+
+  // === Data menu (Export / Restore / Clear) ===
+  const [dataMenuOpen, setDataMenuOpen] = useState(false);
+  const dataMenuRef = useRef(null);
+  const restoreInputRef = useRef(null);
+  useEffect(() => {
+    if (!dataMenuOpen) return;
+    const handler = (e) => {
+      if (dataMenuRef.current && !dataMenuRef.current.contains(e.target)) setDataMenuOpen(false);
+    };
+    const esc = (e) => { if (e.key === 'Escape') setDataMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [dataMenuOpen]);
+
+  const exportCatchupData = () => {
+    setDataMenuOpen(false);
+    const payload = data || { vacationPeriod: { from: '', to: '' }, analyzedAt: null, items: [] };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = 'context-catchup_' + today + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const triggerRestore = () => {
+    setDataMenuOpen(false);
+    if (restoreInputRef.current) restoreInputRef.current.click();
+  };
+
+  const handleRestoreFile = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.items)) {
+        throw new Error('Expected a context-catchup JSON with items[]');
+      }
+      const count = parsed.items.length;
+      if (!confirm('Replace current catch-up with ' + count + ' item(s) from backup? This cannot be undone.')) {
+        e.target.value = '';
+        return;
+      }
+      await fetch(API_DATA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed) });
+      setData(parsed);
+      if (parsed.vacationPeriod) {
+        setAwayFrom(parsed.vacationPeriod.from || '');
+        setBackOn(parsed.vacationPeriod.to || '');
+      }
+    } catch (err) {
+      alert('Invalid backup file: ' + (err && err.message || err));
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const clearCatchupData = async () => {
+    setDataMenuOpen(false);
+    if (!confirm('Clear all Context Catch-up data? This affects only this tool. Rolling backups are kept.')) return;
+    const empty = { vacationPeriod: { from: '', to: '' }, analyzedAt: null, items: [] };
+    await fetch(API_DATA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(empty) });
+    setData(empty);
+    setAwayFrom('');
+    setBackOn('');
+  };
+
+  const loadData = useCallback(async () => {
+    setLoadError(null);
+    const bust = '?t=' + Date.now();
+    try {
+      const [dRes, fRes] = await Promise.all([
+        fetch(API_DATA + bust, { cache: 'no-store' }),
+        fetch(API_FILES + bust, { cache: 'no-store' }),
+      ]);
+      if (!dRes.ok) throw new Error('Data API ' + dRes.status);
+      if (!fRes.ok) throw new Error('Files API ' + fRes.status);
+      const [dr, fr] = await Promise.all([dRes.json(), fRes.json()]);
+      if (dr) {
+        setData(dr);
+        if (dr.vacationPeriod) {
+          setAwayFrom(dr.vacationPeriod.from || '');
+          setBackOn(dr.vacationPeriod.to || '');
+        }
+      } else {
+        // File not yet created server-side. Treat as empty, don't block UI.
+        setData({ vacationPeriod: { from: '', to: '' }, items: [] });
+      }
+      setFileInfo(fr);
+    } catch(e) {
+      console.error('[context-catchup] loadData failed:', e);
+      setLoadError(e.message || 'Could not reach the workspace server. Is it running?');
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Poll for new items whenever there are none (regardless of folder state)
+  const hasItems = data && data.items && data.items.length > 0;
+  const filesReady = fileInfo && fileInfo.count > 0;
+
+  useEffect(() => {
+    if (!hasItems && data !== null) {
+      pollRef.current = setInterval(async () => {
+        try {
+          const r = await fetch(API_DATA + '?t=' + Date.now(), { cache: 'no-store' });
+          if (!r.ok) return;
+          const d = await r.json();
+          if (d && d.items && d.items.length > 0) {
+            setData(d);
+            if (d.vacationPeriod) {
+              setAwayFrom(d.vacationPeriod.from || '');
+              setBackOn(d.vacationPeriod.to || '');
+            }
+            clearInterval(pollRef.current);
+          }
+        } catch(e) {}
+      }, 3000);
+    }
+    return () => clearInterval(pollRef.current);
+  }, [hasItems, data]);
+
+  const saveVacationDates = async () => {
+    const next = {
+      ...(data || { items: [] }),
+      vacationPeriod: { from: awayFrom, to: backOn },
+    };
+    setSaving(true);
+    try {
+      await fetch(API_DATA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
+      setData(next);
+    } catch(e) {}
+    setSaving(false);
+  };
+
+  const toggleItem = async (id) => {
+    const next = { ...data, items: data.items.map(i => i.id === id ? { ...i, done: !i.done } : i) };
+    setData(next);
+    await fetch(API_DATA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
+  };
+
+  const removeItem = async (id) => {
+    const next = { ...data, items: data.items.filter(i => i.id !== id) };
+    setData(next);
+    await fetch(API_DATA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
+  };
+
+  const addItem = async () => {
+    if (!newTitle.trim() && !newText.trim()) { setAdding(false); return; }
+    const item = { id: uid(), title: newTitle.trim(), text: newText.trim(), source: 'manual', done: false };
+    const next = { ...data, items: [...data.items, item] };
+    setData(next);
+    setNewTitle(''); setNewText(''); setAdding(false);
+    await fetch(API_DATA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
+  };
+
+  const addNextStep = async ({ text, source }) => {
+    try {
+      const r = await fetch('/data/plan-and-track?t=' + Date.now(), { cache: 'no-store' });
+      const ws = await r.json();
+      const entry = {
+        id: uid(),
+        text,
+        owner: 'Me',
+        due: '',
+        source: source || 'Catch-up',
+        done: false,
+        createdAt: new Date().toISOString(),
+      };
+      const nextWs = { ...ws, nextSteps: [...(ws.nextSteps || []), entry] };
+      await fetch('/data/plan-and-track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextWs),
+      });
+    } catch (e) {
+      console.warn('Failed to add next step', e);
+    }
+  };
+
+  const resetForNewVacation = async () => {
+    if (!confirm('Clear current catch-up items and start fresh for a new vacation?')) return;
+    // Server keeps rolling backups in data/backups/ so a local stash isn't needed.
+    const fresh = { vacationPeriod: { from: '', to: '' }, analyzedAt: null, items: [] };
+    await fetch(API_DATA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fresh) });
+    setData(fresh);
+    setAwayFrom('');
+    setBackOn('');
+  };
+
+  const refreshFiles = async () => {
+    const fr = await fetch(API_FILES).then(r => r.json()).catch(() => null);
+    if (fr) setFileInfo(fr);
+  };
+
+  // Flat list: open items first, done at the bottom
+  const allItems = hasItems ? data.items : [];
+  const applySort = (arr) => {
+    if (sortBy === 'source') {
+      return arr.slice().sort((a, b) => (a.source || '').toLowerCase().localeCompare((b.source || '').toLowerCase()));
+    }
+    return arr; // 'importance': preserve stored order
+  };
+  const openItems = applySort(allItems.filter(i => !i.done));
+  const doneItems = applySort(allItems.filter(i => i.done));
+  const done = doneItems.length;
+
+  const datesChanged = data?.vacationPeriod?.from !== awayFrom || data?.vacationPeriod?.to !== backOn;
+
+  // ── Render ──────────────────────────────────────────────────
+  const SUN = <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>;
+  const MOON = <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.36 10.05A6 6 0 015.95 2.64 6 6 0 1013.36 10.05z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>;
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: '100vh', background: T.bg }}>
+        <div style={{ fontSize: 13, color: T.faint }}>Loading…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: T.bg, paddingBottom: 60 }}>
+      {/* Floating back button */}
+      <a href="/" title="Workspace" aria-label="Back to Workspace"
+        style={{ position: 'fixed', top: 16, left: 16, zIndex: 100,
+          width: 36, height: 36, borderRadius: 8,
+          background: T.surface, border: `1px solid ${T.border}`, color: T.muted,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          textDecoration: 'none', transition: 'all 0.15s',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+        onMouseEnter={e => { e.currentTarget.style.color = T.accent; e.currentTarget.style.borderColor = T.accent; }}
+        onMouseLeave={e => { e.currentTarget.style.color = T.muted; e.currentTarget.style.borderColor = T.border; }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </a>
+
+      {/* Floating theme toggle */}
+      <button onClick={toggleTheme} title="Toggle theme"
+        style={{ position: 'fixed', top: 16, right: 16, zIndex: 100,
+          background: T.surface, border: `1px solid ${T.border}`, color: T.muted,
+          width: 36, height: 36, borderRadius: 8, cursor: 'pointer', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        {theme === 'dark' ? SUN : MOON}
+      </button>
+
+      {/* Floating data menu (Export / Restore / Clear) */}
+      <div ref={dataMenuRef} style={{ position: 'fixed', top: 16, right: 60, zIndex: 100 }}>
+        <button onClick={() => setDataMenuOpen(o => !o)} title="Data" aria-haspopup="true" aria-expanded={dataMenuOpen}
+          style={{ background: T.surface, border: `1px solid ${T.border}`, color: T.muted,
+            width: 36, height: 36, borderRadius: 8, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v7M4.5 6.5L7 9l2.5-2.5M2.5 11.5h9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <input ref={restoreInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleRestoreFile} />
+        {dataMenuOpen && (
+          <div role="menu" style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+            minWidth: 200, background: T.surface, border: `1px solid ${T.border}`,
+            borderRadius: 8, boxShadow: T.shadow, padding: 4, display: 'flex', flexDirection: 'column' }}>
+            <button role="menuitem" onClick={exportCatchupData}
+              style={{ textAlign: 'left', padding: '8px 12px', fontSize: 12, fontFamily: 'inherit',
+                background: 'transparent', border: 'none', color: T.text, cursor: 'pointer', borderRadius: 6 }}
+              onMouseEnter={e => e.currentTarget.style.background = T.accentLight}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              Export data (.json)
+            </button>
+            <button role="menuitem" onClick={triggerRestore}
+              style={{ textAlign: 'left', padding: '8px 12px', fontSize: 12, fontFamily: 'inherit',
+                background: 'transparent', border: 'none', color: T.text, cursor: 'pointer', borderRadius: 6 }}
+              onMouseEnter={e => e.currentTarget.style.background = T.accentLight}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              Restore from backup
+            </button>
+            <div style={{ height: 1, background: T.border, margin: '4px 0' }} />
+            <button role="menuitem" onClick={clearCatchupData}
+              style={{ textAlign: 'left', padding: '8px 12px', fontSize: 12, fontFamily: 'inherit',
+                background: 'transparent', border: 'none', color: T.danger, cursor: 'pointer', borderRadius: 6 }}
+              onMouseEnter={e => e.currentTarget.style.background = T.dangerBg}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              Clear all data
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '64px 24px 32px' }}>
+
+        {loadError && (
+          <div style={{ marginBottom: 20, padding: '12px 16px', borderRadius: 10,
+            background: T.dangerBg, border: `1px solid ${T.danger}`, color: T.danger,
+            fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span><strong>Couldn't load catch-up data:</strong> {loadError}</span>
+            <button onClick={loadData} style={{ background: 'transparent', color: T.danger,
+              border: `1px solid ${T.danger}`, borderRadius: 100, padding: '4px 12px',
+              fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Header */}
+        <div style={{ marginBottom: 28 }}>
+          {hasItems && data.vacationPeriod?.from ? (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+                letterSpacing: '0.08em', color: T.accent, marginBottom: 6 }}>
+                Back from vacation
+              </div>
+              <h1 style={{ fontSize: 26, fontWeight: 700, color: T.text, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+                {fmt(data.vacationPeriod.from)} – {fmt(data.vacationPeriod.to)}
+              </h1>
+              {data.analyzedAt && (
+                <div style={{ fontSize: 12, color: T.faint, marginTop: 4 }}>
+                  Analyzed {fmt(data.analyzedAt)}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+                letterSpacing: '0.08em', color: T.accent, marginBottom: 6 }}>
+                Welcome back
+              </div>
+              <h1 style={{ fontSize: 26, fontWeight: 700, color: T.text, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+                Context Catch-up
+              </h1>
+              <p style={{ fontSize: 13, color: T.muted, marginTop: 6, lineHeight: 1.6 }}>
+                Set your vacation dates, drop everything in the catch-up folder, then run the Cowork prompt to analyze it all.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Vacation dates + Cowork prompt: only shown when no items yet */}
+        {!hasItems && (
+          <>
+        <Card T={T} style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+            letterSpacing: '0.06em', color: T.muted, marginBottom: 12 }}>
+            Vacation period
+          </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 140 }}>
+              <label style={{ fontSize: 11, color: T.faint, display: 'block', marginBottom: 5 }}>Away from</label>
+              <input type="date" value={awayFrom} onChange={e => setAwayFrom(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${T.border}`,
+                  background: T.bg, color: T.text, fontSize: 13, outline: 'none' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 140 }}>
+              <label style={{ fontSize: 11, color: T.faint, display: 'block', marginBottom: 5 }}>Back on</label>
+              <input type="date" value={backOn} onChange={e => setBackOn(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${T.border}`,
+                  background: T.bg, color: T.text, fontSize: 13, outline: 'none' }} />
+            </div>
+            {datesChanged && (
+              <button onClick={saveVacationDates}
+                style={{ background: T.accentBg, color: T.accentText, border: 'none',
+                  borderRadius: 8, padding: '9px 16px', fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                {saving ? 'Saving…' : 'Save dates'}
+              </button>
+            )}
+          </div>
+        </Card>
+
+        {/* Cowork prompt */}
+        <PromptBlock T={T} from={awayFrom} to={backOn} />
+
+        {/* How to run instructions */}
+        <div style={{ marginTop: 16, marginBottom: 28 }}>
+          <button onClick={() => setShowHow(h => !h)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted,
+              fontSize: 12, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
+            <span>{showHow ? '▼' : '▶'}</span>
+            <span>How to run this · step-by-step instructions</span>
+          </button>
+
+          {showHow && (
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Card T={T} style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <StepBadge T={T} n="1" />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+                      Set your vacation dates above
+                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6 }}>
+                      Enter the date you left and the date you returned. This tells the analysis what window to focus on.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card T={T} style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <StepBadge T={T} n="2" />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+                      Drop everything into <code style={{ background: T.codeBg, color: T.code,
+                        padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>files/Context-catch-up/</code>
+                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6 }}>
+                      Inside your workspace folder. Include: meeting transcripts, Slack exports, email summaries,
+                      Confluence page exports (.txt or .md), Jira exports, Productboard link lists, or any notes from colleagues.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card T={T} style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <StepBadge T={T} n="3" />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+                      Open a new Cowork session with your workspace folder
+                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6 }}>
+                      Launch Cowork → start a new chat → when prompted, select your workspace folder
+                      (<code style={{ background: T.codeBg, color: T.code, padding: '1px 5px',
+                        borderRadius: 4, fontSize: 11 }}>workspace/</code>).
+                      This gives Claude access to read the files and write back results.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card T={T} style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <StepBadge T={T} n="4" />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+                      Paste and run the Cowork prompt
+                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6 }}>
+                      Copy the prompt above (with your dates filled in) and paste it as your first message.
+                      Claude will read every file in <code style={{ background: T.codeBg, color: T.code,
+                        padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>files/Context-catch-up/</code>,
+                      extract what matters, and write the results to <code style={{ background: T.codeBg,
+                        color: T.code, padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>data/context-catchup.json</code>.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card T={T} style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <StepBadge T={T} n="5" />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+                      Come back here to see your items
+                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6 }}>
+                      Once Claude finishes, reload this page. Your catch-up items will appear below,
+                      ordered by importance. Check off items as you address them.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card T={T} style={{ padding: '14px 16px', background: T.accentBg }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>↺</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.accentText, marginBottom: 4 }}>
+                      Next vacation? Just repeat the process
+                    </div>
+                    <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.7 }}>
+                      1. Click <strong style={{ color: T.text }}>New vacation</strong> (top right) to clear current items.<br/>
+                      2. Update your dates above. The prompt auto-updates with the new window.<br/>
+                      3. Clear out old files from <code style={{ background: T.codeBg, color: T.code,
+                        padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>files/Context-catch-up/</code> and drop in the new batch.<br/>
+                      4. Run the prompt again in a fresh Cowork session.<br/>
+                      <br/>
+                      The page will only show items from the dates in the current prompt.
+                      Previous catch-ups are archived in <code style={{ background: T.codeBg,
+                        color: T.code, padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>data/backups/</code>.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+        </>
+        )}
+
+        {/* Items: populated state */}
+        {hasItems ? (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+              <button onClick={resetForNewVacation}
+                style={{ background: 'none', border: `1.5px dashed ${T.accent}`, color: T.accent,
+                  fontSize: 13, fontWeight: 500, padding: '8px 22px', borderRadius: 100, cursor: 'pointer',
+                  fontFamily: 'inherit', opacity: 0.7 }}>
+                New vacation
+              </button>
+            </div>
+            <ProgressBar T={T} done={done} total={data.items.length} />
+
+            {/* Single flat list of open items */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 12, margin: '28px 0 10px' }}>
+              <div style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase',
+                letterSpacing: '0.08em', color: T.faint }}>
+                To review
+              </div>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: T.faint, marginRight: 2 }}>Sort:</span>
+                {[
+                  { key: 'importance', label: 'Importance' },
+                  { key: 'source',     label: 'Source' },
+                ].map(opt => {
+                  const active = sortBy === opt.key;
+                  return (
+                    <button key={opt.key} onClick={() => setSortBy(opt.key)}
+                      style={{ fontSize: 11, fontWeight: 500, padding: '2px 9px', borderRadius: 100,
+                        border: `1px solid ${active ? T.accent : T.border}`,
+                        background: active ? T.accentLight : 'transparent',
+                        color: active ? T.accent : T.faint, cursor: 'pointer',
+                        fontFamily: 'inherit', lineHeight: '18px' }}>
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <Card T={T} style={{ padding: '0 18px' }}>
+              {openItems.length === 0 && !adding && (
+                <div style={{ padding: '14px 0', fontSize: 12, color: T.faint, fontStyle: 'italic' }}>
+                  Nothing left. Nice.
+                </div>
+              )}
+              {openItems.map(item => (
+                <ItemRow key={item.id} T={T} item={item}
+                  onToggle={toggleItem} onRemove={removeItem} onAddNextStep={addNextStep} />
+              ))}
+              {adding ? (
+                <div style={{ padding: '12px 0', borderTop: openItems.length > 0 ? `1px solid ${T.border}` : 'none' }}>
+                  <input
+                    autoFocus
+                    placeholder="Title (e.g. Follow up with Henrique)"
+                    value={newTitle}
+                    onChange={e => setNewTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Escape') { setAdding(false); setNewTitle(''); setNewText(''); }}}
+                    style={{ width: '100%', padding: '7px 10px', borderRadius: 7,
+                      border: `1px solid ${T.border}`, background: T.surface2, color: T.text,
+                      fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 7 }} />
+                  <textarea
+                    placeholder="Details (optional)"
+                    value={newText}
+                    onChange={e => setNewText(e.target.value)}
+                    rows={2}
+                    onKeyDown={e => { if (e.key === 'Escape') { setAdding(false); setNewTitle(''); setNewText(''); }}}
+                    style={{ width: '100%', padding: '7px 10px', borderRadius: 7,
+                      border: `1px solid ${T.border}`, background: T.surface2, color: T.text,
+                      fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 8 }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={addItem}
+                      style={{ background: T.accent, color: '#FFFFFF', border: 'none',
+                        borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 600,
+                        cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Add
+                    </button>
+                    <button onClick={() => { setAdding(false); setNewTitle(''); setNewText(''); }}
+                      style={{ background: 'none', border: `1px solid ${T.border}`, color: T.muted,
+                        borderRadius: 100, padding: '6px 14px', fontSize: 12,
+                        cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: '10px 0', borderTop: openItems.length > 0 ? `1px solid ${T.border}` : 'none' }}>
+                  <button onClick={() => { setAdding(true); setNewTitle(''); setNewText(''); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500,
+                      color: T.accent, background: 'transparent', border: `1px dashed ${T.accent}`,
+                      borderRadius: 100, cursor: 'pointer', padding: '8px 16px', fontFamily: 'inherit' }}>
+                    <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> Add item
+                  </button>
+                </div>
+              )}
+            </Card>
+
+            {/* Done items */}
+            {doneItems.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase',
+                  letterSpacing: '0.08em', color: T.faint, margin: '28px 0 10px' }}>
+                  Done ({doneItems.length})
+                </div>
+                <Card T={T} style={{ padding: '0 18px' }}>
+                  {doneItems.map(item => (
+                    <ItemRow key={item.id} T={T} item={item}
+                      onToggle={toggleItem} onRemove={removeItem} onAddNextStep={addNextStep} />
+                  ))}
+                </Card>
+              </>
+            )}
+          </div>
+        ) : (
+          /* Empty state */
+          <div style={{ textAlign: 'center', padding: '40px 20px', border: `1px dashed ${T.border}`,
+            borderRadius: 12, background: T.surface }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🏖️</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: T.text, marginBottom: 6 }}>
+              {filesReady ? 'Files ready · run the Cowork prompt' : 'No catch-up items yet'}
+            </div>
+            <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.7, maxWidth: 400, margin: '0 auto' }}>
+              {filesReady
+                ? <span>{fileInfo.count} file{fileInfo.count !== 1 ? 's' : ''} found in <code style={{ background: T.codeBg, color: T.code, padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>files/Context-catch-up/</code>. Copy the prompt above, open a new Cowork session with your workspace folder selected, and paste it in. Once Claude finishes, <a href="#" onClick={e => { e.preventDefault(); window.location.reload(); }} style={{ color: T.accent, textDecoration: 'underline', cursor: 'pointer' }}>reload this page</a>.</span>
+                : <span>Drop your files into <code style={{ background: T.codeBg, color: T.code, padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>files/Context-catch-up/</code> inside your workspace folder, then copy and run the prompt above in a new Cowork session. Once Claude finishes, <a href="#" onClick={e => { e.preventDefault(); window.location.reload(); }} style={{ color: T.accent, textDecoration: 'underline', cursor: 'pointer' }}>reload this page</a>.</span>}
+            </div>
+            {!filesReady && (
+              <div style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 8,
+                background: T.accentBg, border: `1px solid ${T.border}`, borderRadius: 8,
+                padding: '10px 16px' }}>
+                <span style={{ fontSize: 16 }}>📁</span>
+                <code style={{ fontSize: 12, color: T.accentText, fontFamily: "'SF Mono','Fira Code',monospace" }}>
+                  files/Context-catch-up/
+                </code>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
