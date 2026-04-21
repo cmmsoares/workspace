@@ -6,7 +6,7 @@ A local productivity workspace. Three tools that run in your browser, backed by 
 
 ## Get the files
 
-1. Go to the repo's **[Releases](https://github.com/your-username/workspace-tool/releases) page**.
+1. Go to the repo's **[Releases](https://github.com/cmmsoares/workspace/releases) page**.
 2. Under the latest release, download **`workspace.zip`**.
 3. Unzip it. You'll get a folder called `workspace`.
 
@@ -60,7 +60,14 @@ If you see `command not found`, install Node from https://nodejs.org (pick the "
 
 Double-click **`Workspace.app`** inside the workspace folder.
 
-> **First time only:** macOS may say *"Workspace.app can't be opened because Apple cannot check it for malicious software."* Right-click the app → **Open** → click **Open** on the security prompt. You only need to do this once.
+**First-time launch on macOS:** macOS will block the app because it's unsigned. To allow it:
+
+1. Double-click `Workspace.app`. You'll see a warning that it can't be opened.
+2. Open **System Settings → Privacy & Security**, scroll to the **Security** section.
+3. Click **Open Anyway** next to "Workspace.app was blocked."
+4. Double-click `Workspace.app` again and confirm **Open**.
+
+You only do this once. Future launches work with a normal double-click.
 
 Here's what happens:
 - A Terminal window opens and starts the server
@@ -70,6 +77,12 @@ Here's what happens:
 The first time you open **Plan & Track**, a Welcome modal will ask for your name and role. That's used in your weekly reports.
 
 > **Note:** Keep the Terminal window open in the background. Closing it stops the server. Minimize it if it's in the way.
+
+> **If Terminal shows `Cannot find module '.../server.js'` with an `AppTranslocation` path:** macOS is running the app from a quarantined copy. Fix it once by opening Terminal and running:
+> ```
+> xattr -dr com.apple.quarantine ~/Documents/claude/workspace
+> ```
+> Then double-click `Workspace.app` again.
 
 ---
 
@@ -134,7 +147,8 @@ The server keeps 20 rolling backups per file in `data/backups/` and a daily snap
 
 ## If something goes wrong
 
-- **Double-clicking `Workspace.app` does nothing** → right-click it → Open → confirm the security prompt (first run only).
+- **macOS blocks `Workspace.app` on first launch** → System Settings → Privacy & Security → Security → click **Open Anyway** next to the blocked app.
+- **Terminal shows `Cannot find module .../server.js` with an `AppTranslocation` path** → macOS quarantined the app. Run `xattr -dr com.apple.quarantine ~/Documents/claude/workspace` in Terminal, then try again.
 - **"node: command not found" in Terminal** → install Node.js from https://nodejs.org and try again.
 - **Browser shows "can't connect to localhost:3000"** → the server didn't start or was stopped. Double-click `Workspace.app` again.
 - **Tool shows old data** → hard-refresh the browser (⌘+Shift+R).
